@@ -1,0 +1,131 @@
+\begingroup
+\setlength{\LTpre}{0pt}
+\setlength{\LTpost}{0pt}
+\scriptsize
+\renewcommand{\arraystretch}{1.1}
+\begin{longtable}{@{}llp{0.68\textwidth}@{}}
+\toprule
+ID & Name & Formula \\
+\midrule
+\endfirsthead
+\toprule
+ID & Name & Formula \\
+\midrule
+\endhead
+\midrule
+\multicolumn{3}{r}{(continued)} \\
+\endfoot
+\bottomrule
+\endlastfoot
+001 & Intraday Range Position & \texttt{Neg(CsRank(Div(Sub(\$close, Min(\$close, 48)), Add(Sub(Max(\$close, 48), Min(\$close, 48)), 1e-8))))} \\
+002 & EMA Deviation & \texttt{Neg(Div(Sub(\$close, EMA(\$close, 10)), EMA(\$close, 10)))} \\
+003 & Vol-VWAP Divergence & \texttt{Sub(CsRank(Delta(\$volume, 1)), CsRank(Div(Sub(\$close, \$vwap), \$vwap)))} \\
+004 & High-Volume Relative Weakness & \texttt{Mul(CsRank(Div(\$volume, Mean(\$volume, 24))), CsRank(Neg(\$returns)))} \\
+005 & Range-Position Vol-Volume Cov Reversal & \texttt{Neg(Mul(TsRank(Div(Sub(\$close, TsMin(\$close, 12)), Add(Sub(TsMax(\$close, 12), TsMin(\$close, 12)), 1e-6)), 12), CsRank(Abs(Cov(\$returns, \$volume, 12)))))} \\
+006 & VWAP Deviation & \texttt{Neg(Div(Sub(\$close, \$vwap), \$vwap))} \\
+007 & Price-Volume Mean Reversal & \texttt{Neg(Sub(CsRank(Div(Sub(\$close, \$low), Add(Sub(\$high, \$low), 0.0001))), CsRank(Delta(EMA(\$volume, 5), 5))))} \\
+008 & Normalized Money Strength Reversal & \texttt{Neg(Mul(CsRank(Div(\$returns, Add(Std(\$returns, 12), 0.0001))), CsRank(Div(\$volume, Mean(\$volume, 12)))))} \\
+009 & Volatility-Filtered Return Reversal & \texttt{Neg(Mul(CsRank(\$returns), CsRank(Std(\$returns, 12))))} \\
+010 & Price-Volume Divergence Reversal & \texttt{Neg(CsRank(Sub(CsRank(Div(\$close, Delay(\$close, 5))), CsRank(Div(\$volume, Delay(\$volume, 5))))))} \\
+011 & Price-VWAP Momentum Overextension & \texttt{Neg(Sub(CsRank(Delta(\$close, 6)), CsRank(Delta(\$vwap, 6))))} \\
+012 & Volume-Augmented VWAP Reversal & \texttt{Mul(CsRank(Neg(Div(Sub(\$close, \$vwap), \$vwap))), CsRank(Div(\$volume, EMA(\$volume, 12))))} \\
+013 & Illiquidity-Augmented VWAP Reversal & \texttt{Mul(CsRank(Neg(Div(Sub(\$close, \$vwap), \$vwap))), Sub(1, CsRank(\$volume)))} \\
+014 & Resilience-Momentum Blend Reversal & \texttt{Mul(Add(Mul(CsRank(Neg(Div(Sub(\$close, \$vwap), \$vwap))), 0.6), Mul(CsRank(Delta(Neg(Div(Sub(\$close, \$vwap), \$vwap)), 3)), 0.4)), CsRank(Delta(Div(Mean(Div(Abs(\$returns), Add(\$volume, 1)), 24), Add(Div(Abs(\$returns), Add(\$volume, 1)), 1e-6)), 3)))} \\
+015 & Volatility-Balanced Momentum Reversal & \texttt{Mul(CsRank(Neg(Delta(\$returns, 3))), Mul(Sub(1, CsRank(Std(\$returns, 12))), CsRank(Std(\$returns, 12))))} \\
+016 & VWAP-Deviation Acceleration Reversal & \texttt{Neg(Mul(CsRank(Delta(Div(Sub(\$close, \$vwap), \$vwap), 3)), CsRank(Div(\$volume, EMA(\$volume, 12)))))} \\
+017 & VWAP-Acceleration Volatility Reversal & \texttt{Neg(Mul(TsRank(Delta(Div(Sub(\$close, \$vwap), \$vwap), 3), 12), TsRank(Std(\$returns, 12), 12)))} \\
+018 & Range-Position Volume Regime Reversal & \texttt{Neg(Mul(TsRank(Div(Sub(\$close, TsMin(\$close, 12)), Add(Sub(TsMax(\$close, 12), TsMin(\$close, 12)), 1e-6)), 12), TsRank(Div(\$volume, EMA(\$volume, 12)), 12)))} \\
+019 & VWAP-Gap Regime Range Reversal & \texttt{IfElse(Greater(Abs(Div(Sub(\$close, \$vwap), \$vwap)), 0.01), Neg(CsRank(Sub(\$close, TsMax(\$close, 12)))), Neg(CsRank(Sub(\$close, TsMin(\$close, 12)))))} \\
+020 & Volume-Price Delta Divergence TsRank & \texttt{TsRank(Sub(CsRank(Delta(\$volume, 3)), CsRank(Delta(\$close, 3))), 18)} \\
+021 & Volume-Shock VWAP-Momentum Reversal & \texttt{Neg(Mul(TsRank(Delta(Div(\$volume, EMA(\$volume, 12)), 3), 12), TsRank(Delta(Div(Sub(\$close, \$vwap), \$vwap), 3), 12)))} \\
+022 & Lower-Shadow Ratio Reversal & \texttt{Neg(CsRank(Div(Sub(Min2(\$open, \$close), \$low), Add(Sub(\$high, \$low), 0.0001))))} \\
+023 & Normalized-Momentum TsRank Reversal & \texttt{Neg(TsRank(Div(Delta(\$close, 3), Mean(Abs(Delta(\$close, 3)), 12)), 12))} \\
+024 & Open-Close Momentum Divergence & \texttt{Sub(TsRank(Delta(\$open, 6), 12), TsRank(Delta(\$close, 6), 12))} \\
+025 & Open-Close Momentum Divergence V2 & \texttt{Sub(TsRank(Delta(\$open, 9), 18), TsRank(Delta(\$close, 9), 18))} \\
+026 & Price-Volume Covariance Position Long & \texttt{Neg(Mul(TsRank(Cov(TsRank(\$close, 18), TsRank(\$volume, 18), 10), 18), TsRank(Div(Sub(\$close, \$low), Sub(\$high, \$low)), 18)))} \\
+027 & Open-Volume Covariance Position & \texttt{Neg(Mul(TsRank(Cov(TsRank(\$open, 12), TsRank(\$volume, 12), 5), 12), TsRank(Div(Sub(\$close, \$low), Sub(\$high, \$low)), 12)))} \\
+028 & Close-Low × Volume Ratio & \texttt{Neg(Mul(Sub(\$close, \$low), Div(\$volume, Mean(\$volume, 12))))} \\
+029 & High-Close × Volume Ratio & \texttt{Mul(Sub(\$high, \$close), Div(\$volume, Mean(\$volume, 12)))} \\
+030 & Delta(High-Close)3 × Volume Ratio & \texttt{Mul(Delta(Sub(\$high, \$close), 3), Div(\$volume, Mean(\$volume, 12)))} \\
+031 & Price Trend Conditional Strategy & \texttt{IfElse(Greater(Delta(\$close, 1), 0), Neg(TsRank(Delta(\$close, 3), 12)), TsRank(Delta(\$close, 3), 12))} \\
+032 & Returns-Volume Delta Divergence & \texttt{Neg(TsRank(Sub(CsRank(Delta(\$returns, 2)), CsRank(Delta(\$volume, 2))), 12))} \\
+033 & Volume-Range Correlation Shock & \texttt{Neg(Mul(TsRank(Corr(TsRank(Div(\$volume, Mean(\$volume, 24)), 12), TsRank(Sub(\$high, \$low), 12), 12), 24), CsRank(Delta(\$close, 2))))} \\
+034 & Price Trend Conditional Momentum V2 & \texttt{IfElse(Greater(Delta(\$close, 2), 0), Neg(TsRank(Delta(\$close, 5), 15)), TsRank(Delta(\$close, 5), 15))} \\
+035 & High-Low Expansion vs Close Accel & \texttt{Neg(Mul(TsRank(Delta(Sub(\$high, \$low), 2), 12), CsRank(Delta(\$close, 2))))} \\
+036 & Volatility Switch Candle Reversal & \texttt{IfElse(Greater(Std(\$returns, 12), Mean(Std(\$returns, 12), 48)), Neg(CsRank(Div(Sub(Min2(\$open, \$close), \$low), Add(Sub(\$high, \$low), 0.0001)))), Neg(CsRank(\$returns)))} \\
+037 & Price-Volume Momentum Synchrony & \texttt{Neg(TsRank(Mul(CsRank(Delta(\$close, 3)), CsRank(Delta(\$volume, 3))), 18))} \\
+038 & Vol-Regime Conditional Divergence V2 & \texttt{IfElse(Greater(Std(\$returns, 12), Mean(Std(\$returns, 12), 48)), Neg(TsRank(Sub(CsRank(Delta(\$volume, 3)), CsRank(Delta(\$close, 3))), 18)), Neg(TsRank(Div(Sub(\$close, \$vwap), Add(Std(\$returns, 24), 0.0001)), 12)))} \\
+039 & Kurtosis-Filtered Momentum & \texttt{Neg(Mul(CsRank(Delta(\$close, 5)), CsRank(Kurt(\$returns, 24))))} \\
+040 & Price Intensity Skewness Blend & \texttt{Neg(Mul(CsRank(Div(Sub(\$close, \$low), Add(Sub(\$high, \$low), 0.0001))), CsRank(Skew(\$returns, 24))))} \\
+041 & Price Range Skewness Interaction & \texttt{Mul(CsRank(Div(Sub(\$high, \$close), Add(Sub(\$high, \$low), 1e-8))), CsRank(Neg(Skew(\$returns, 24))))} \\
+042 & Regime-Switching Skew Factor & \texttt{IfElse(Greater(Abs(Skew(\$returns, 24)), 1.0), Neg(CsRank(\$returns)), Neg(CsRank(Skew(\$returns, 24))))} \\
+043 & Skewed Volume Momentum & \texttt{Neg(TsRank(Mul(CsRank(Skew(\$volume, 24)), CsRank(Delta(\$close, 3))), 12))} \\
+044 & Kurtotic Volume Intensity & \texttt{Neg(Mul(CsRank(Kurt(\$volume, 24)), CsRank(Div(Sub(\$close, \$low), Add(Sub(\$high, \$low), 0.0001)))))} \\
+045 & Kurtosis-Regime Range Reversal & \texttt{IfElse(Greater(Kurt(\$returns, 24), 3.0), Neg(CsRank(Div(Sub(\$high, \$close), Add(Sub(\$high, \$low), 0.0001)))), Neg(CsRank(Div(Sub(\$close, \$low), Add(Sub(\$high, \$low), 0.0001)))))} \\
+046 & Volatility-Regime Reversal Divergence & \texttt{IfElse(Greater(Std(\$returns, 12), Mean(Std(\$returns, 12), 48)), Neg(CsRank(Delta(\$close, 3))), Neg(CsRank(Div(Sub(\$close, \$low), Add(Sub(\$high, \$low), 0.0001)))))} \\
+047 & Volume-weighted Alpha101-1 variant V2 & \texttt{Neg(Mul(CsRank(TsRank(Delta(Log(Add(\$volume, 1)), 3), 6)), CsRank(Div(Delta(\$close, 6), \$close))))} \\
+048 & Volatility-Price Rank Divergence TsRank V2 & \texttt{TsRank(Sub(CsRank(Std(\$returns, 12)), CsRank(Delta(\$close, 6))), 18)} \\
+049 & Regime\_C0\_F10\_F21 & \texttt{IfElse(Greater(Skew(\$returns, 24), 0.5), CsRank(Delta(\$volume, 3)), Neg(CsRank(Std(\$returns, 12))))} \\
+050 & Regime\_C0\_F11\_F20 & \texttt{IfElse(Greater(Skew(\$returns, 24), 0.5), Neg(CsRank(Div(Sub(\$close, \$low), Add(Sub(\$high, \$low), 1e-6)))), Neg(CsRank(Delta(\$close, 6))))} \\
+051 & Regime\_C1\_F11\_F21 & \texttt{IfElse(Less(Skew(\$returns, 24), -0.5), CsRank(Delta(\$close, 5)), Neg(CsRank(Std(\$returns, 12))))} \\
+052 & Regime\_C1\_F12\_F20 & \texttt{IfElse(Less(Skew(\$returns, 24), -0.5), Neg(TsRank(\$returns, 12)), Neg(CsRank(Delta(\$close, 6))))} \\
+053 & Alpha101\_1\_V & \texttt{Neg(CsRank(TsArgMax(SignedPower(IfElse(Less(\$returns, 0), Std(\$returns, 20), \$close), 2), 5)))} \\
+054 & Amount\_Regime\_Reversal & \texttt{IfElse(Greater(\$amt, Mean(\$amt, 24)), CsRank(Delta(\$close, 3)), Neg(CsRank(Div(Sub(\$close, \$vwap), \$vwap))))} \\
+055 & Return\_Correlation\_Regime & \texttt{IfElse(Greater(Corr(\$close, \$volume, 12), 0.5), Neg(CsRank(\$returns)), CsRank(Delta(\$volume, 3)))} \\
+056 & Kurtosis\_Regime\_Amount\_Efficiency & \texttt{IfElse(Greater(Kurt(\$returns, 24), 3.0), Neg(CsRank(Div(\$amt, Add(\$volume, 1e-6)))), Neg(CsRank(Delta(\$close, 3))))} \\
+057 & TsRank\_Price\_Volume\_Momentum\_Divergence & \texttt{Neg(Sub(TsRank(Delta(\$close, 6), 24), TsRank(Delta(\$volume, 6), 24)))} \\
+058 & Regime\_Amt\_Efficiency\_Switch\_V2 & \texttt{IfElse(Greater(\$amt, Mean(\$amt, 48)), Neg(CsRank(Div(\$amt, Add(\$volume, 1e-6)))), Neg(TsRank(\$returns, 12)))} \\
+059 & Regime\_Triple\_Vol\_Amt\_Skew & \texttt{IfElse(Greater(Std(\$returns, 12), Mean(Std(\$returns, 12), 24)), Neg(CsRank(Skew(\$amt, 12))), Neg(CsRank(Delta(\$close, 3))))} \\
+060 & Regime\_Amt\_Vol\_Divergence\_Switch & \texttt{IfElse(Greater(Div(\$amt, Mean(\$amt, 24)), 1.2), Sub(CsRank(\$close), CsRank(\$volume)), Neg(CsRank(Delta(\$close, 3))))} \\
+061 & Alpha101\_12\_Modern & \texttt{Neg(Mul(TsRank(Delta(\$volume, 1), 12), TsRank(Delta(\$close, 1), 12)))} \\
+062 & Amount\_Stability\_Adjusted\_Returns & \texttt{Neg(Div(CsRank(\$returns), Add(Std(\$amt, 12), 1e-6)))} \\
+063 & Triple\_Rank\_Synchrony\_V8 & \texttt{Neg(TsRank(Add(Add(CsRank(Delta(\$returns, 3)), CsRank(Delta(\$amt, 3))), CsRank(Kurt(\$volume, 12))), 12))} \\
+064 & Regime\_Price\_Volume\_Corr\_Switch\_V3 & \texttt{IfElse(Less(Corr(\$close, \$volume, 12), -0.5), CsRank(\$returns), Neg(CsRank(Delta(\$close, 3))))} \\
+065 & Regime\_Volatility\_Regime\_Switch\_V2 & \texttt{IfElse(Greater(Std(\$returns, 12), Mean(Std(\$returns, 12), 48)), Neg(CsRank(Delta(\$amt, 6))), Neg(CsRank(Delta(\$close, 1))))} \\
+066 & Regime\_Kurt\_Amt\_Flow\_Switch & \texttt{IfElse(Greater(Kurt(\$volume, 24), 3), Neg(CsRank(Delta(\$amt, 3))), Neg(CsRank(\$returns)))} \\
+067 & Alpha101\_54\_Amt\_Divergence & \texttt{Neg(Mul(CsRank(Div(Sub(\$low, \$close), Add(Sub(\$low, \$high), 1e-6))), CsRank(Delta(\$amt, 6))))} \\
+068 & Skewness\_Regime\_PV\_Divergence\_Fixed & \texttt{Neg(IfElse(Less(Skew(\$returns, 24), -0.5), Neg(Sub(TsRank(\$close, 12), TsRank(\$volume, 12))), CsRank(Delta(\$returns, 3))))} \\
+069 & Regime\_Kurt\_Volatility\_Switch\_Fixed & \texttt{Neg(IfElse(Greater(Kurt(\$returns, 12), 3.0), Neg(CsRank(Std(\$returns, 6))), CsRank(Delta(\$returns, 3))))} \\
+070 & Price\_Pos\_Vol\_Interaction & \texttt{Neg(Mul(CsRank(Div(Sub(\$close, \$low), Add(Sub(\$high, \$low), 0.0001))), TsRank(Std(\$returns, 24), 24)))} \\
+071 & Range\_Position\_Vol\_Stability\_Interaction\_Fixed & \texttt{Mul(CsRank(Div(Sub(\$high, \$close), Add(Sub(\$high, \$low), 1e-6))), TsRank(Std(\$volume, 12), 12))} \\
+072 & Kurt\_Regime\_PV\_Corr\_Switch & \texttt{IfElse(Greater(Kurt(\$volume, 24), 3.0), Neg(Corr(\$close, \$volume, 12)), Neg(TsRank(\$returns, 24)))} \\
+073 & Amt\_Velocity\_Regime\_Switch\_V2 & \texttt{IfElse(Greater(\$amt, EMA(\$amt, 12)), Neg(TsRank(Delta(\$volume, 3), 12)), Neg(CsRank(\$returns)))} \\
+074 & Range\_Pos\_Vol\_Skew\_Interaction\_Fixed & \texttt{Neg(Mul(CsRank(Div(Sub(\$close, \$low), Add(Sub(\$high, \$low), 1e-6))), TsRank(Skew(\$volume, 24), 12)))} \\
+075 & Amt\_Efficiency\_Rank\_Interaction & \texttt{Neg(Mul(CsRank(Div(\$returns, \$amt)), TsRank(Std(\$volume, 20), 20)))} \\
+076 & Amt\_Velocity\_Volatility\_Reversal & \texttt{Neg(IfElse(Greater(Div(\$amt, Mean(\$amt, 24)), 2.0), Neg(Delta(\$close, 1)), SMA(\$returns, 6)))} \\
+077 & Vol\_of\_Volume\_Price\_Reversal & \texttt{Neg(Mul(TsRank(Std(Div(\$volume, Mean(\$volume, 24)), 24), 24), TsRank(\$returns, 12)))} \\
+078 & Amt\_Efficiency\_Kurtosis\_Interaction & \texttt{Neg(Mul(CsRank(Div(\$returns, \$amt)), TsRank(Kurt(\$volume, 20), 20)))} \\
+079 & Regime\_Vol\_Range\_Pos\_Switch\_Fixed & \texttt{IfElse(Greater(Std(\$returns, 12), EMA(Std(\$returns, 12), 48)), Neg(Div(Sub(\$close, \$low), Add(Sub(\$high, \$low), 1e-6))), Div(Sub(\$high, \$close), Add(Sub(\$high, \$low), 1e-6)))} \\
+080 & Rsquare\_Resi\_Adaptive & \texttt{IfElse(Greater(Rsquare(\$close, 24), 0.7), Neg(CsRank(Slope(\$close, 24))), Neg(CsRank(Resi(\$close, 12))))} \\
+081 & Regime\_Trend\_Vol\_Corrected & \texttt{IfElse(And(Greater(Rsquare(\$close, 24), 0.6), Greater(Std(\$returns, 12), Mean(Std(\$returns, 12), 48))), Slope(\$close, 12), Neg(SMA(\$returns, 6)))} \\
+082 & Regime\_Logical\_Shadow\_Slope\_Follow & \texttt{IfElse(Or(Greater(Div(Sub(\$high, Max2(\$open, \$close)), Add(Sub(\$high, \$low), 1e-6)), 0.6), Greater(Div(Sub(Min2(\$open, \$close), \$low), Add(Sub(\$high, \$low), 1e-6)), 0.6)), Slope(\$close, 12), Neg(SMA(\$returns, 6)))} \\
+083 & Rsquare\_Stability\_Filtered\_Momentum & \texttt{IfElse(And(Greater(Rsquare(\$close, 24), 0.5), Less(Std(\$returns, 12), Mean(Std(\$returns, 12), 48))), Slope(\$close, 12), Neg(\$returns))} \\
+084 & Volatility\_Sign\_Agreement\_Resi\_Switch & \texttt{IfElse(Eq(Sign(Delta(Std(\$returns, 12), 1)), Sign(Delta(\$returns, 1))), Neg(Resi(\$close, 12)), Neg(Slope(\$close, 24)))} \\
+085 & Rsquare\_Stability\_Resi\_Interaction & \texttt{Neg(Mul(CsRank(Rsquare(\$close, 24)), CsRank(Resi(\$close, 12))))} \\
+086 & Resi\_Acceleration\_Sign\_Logic\_Fixed & \texttt{IfElse(Eq(Sign(Delta(Resi(\$close, 12), 1)), Sign(Resi(\$close, 12))), Neg(Resi(\$close, 6)), Neg(Slope(\$close, 12)))} \\
+087 & Kurt\_Regime\_Resi\_Momentum & \texttt{IfElse(Greater(Kurt(\$returns, 24), 3.0), Neg(Resi(\$close, 6)), Neg(Resi(\$close, 24)))} \\
+088 & Amt\_Efficiency\_Skew\_Interaction & \texttt{Neg(Mul(CsRank(Div(\$returns, Add(\$amt, 1e-6))), TsRank(Skew(\$returns, 24), 24)))} \\
+089 & Extreme\_Divergence\_Or\_Logic & \texttt{IfElse(Or(Greater(\$volume, Mean(\$volume, 24)), Greater(Abs(\$returns), Std(\$returns, 24))), Neg(Resi(\$close, 6)), Neg(Slope(\$close, 12)))} \\
+090 & Trend\_Reliability\_Switch\_Logic\_V2 & \texttt{IfElse(Greater(Rsquare(\$close, 24), 0.75), Neg(Slope(\$close, 12)), Neg(TsRank(\$returns, 12)))} \\
+091 & Amt\_Efficiency\_TsRank\_Kurt\_Interaction & \texttt{Neg(Mul(TsRank(Div(\$returns, Add(\$amt, 1e-6)), 24), TsRank(Kurt(\$returns, 24), 24)))} \\
+092 & Amt\_Efficiency\_EMA\_Smooth\_Rank & \texttt{Neg(CsRank(EMA(Div(\$returns, Add(\$amt, 1e-6)), 6)))} \\
+093 & Amt\_Efficiency\_Delta\_TsRank & \texttt{Neg(TsRank(Delta(Div(\$returns, Add(\$amt, 1e-6)), 3), 24))} \\
+094 & And\_HighVol\_LowKurt\_Switch & \texttt{IfElse(And(Greater(Std(\$returns, 12), Mean(Std(\$returns, 12), 60)), Less(Kurt(\$returns, 24), 2)), Neg(Delta(\$close, 3)), Neg(TsRank(\$returns, 24)))} \\
+095 & Higher\_Moment\_Regime\_Switch & \texttt{IfElse(Or(Greater(Abs(Skew(\$returns, 24)), 1.5), Greater(Kurt(\$returns, 24), 4.0)), Neg(Resi(\$close, 6)), Neg(TsRank(\$returns, 24)))} \\
+096 & Amt\_Efficiency\_PV\_Corr\_Interaction & \texttt{Neg(Mul(TsRank(WMA(Div(\$returns, Add(\$amt, 1e-6)), 6), 24), TsRank(Corr(\$close, \$volume, 24), 24)))} \\
+097 & Amt\_Efficiency\_Med\_Smooth\_Rank & \texttt{Neg(CsRank(Med(Div(\$returns, Add(\$amt, 1e-6)), 6)))} \\
+098 & Smoothed\_Efficiency\_Acceleration & \texttt{Neg(CsRank(Delta(WMA(Div(\$returns, Add(\$amt, 1e-6)), 6), 3)))} \\
+099 & Amt\_Efficiency\_Double\_EMA\_Cross & \texttt{Neg(Sub(EMA(Div(\$returns, Add(\$amt, 1e-6)), 6), EMA(Div(\$returns, Add(\$amt, 1e-6)), 24)))} \\
+100 & Residual\_of\_Residual\_Acceleration & \texttt{Neg(Resi(Delta(Resi(\$close, 24), 3), 12))} \\
+101 & Median\_Returns\_Switch & \texttt{Neg(IfElse(Greater(Abs(Skew(\$returns, 24)), 1.0), TsRank(Div(Sub(\$returns, Med(\$returns, 24)), Add(Std(\$returns, 24), 1e-6)), 24), CsRank(Resi(\$close, 12))))} \\
+102 & High\_Log\_Resi\_Divergence & \texttt{IfElse(Greater(Skew(\$high, 24), 0), TsRank(Log(Div(\$high, Add(\$close, 1e-6))), 24), CsRank(Resi(\$low, 24)))} \\
+103 & Open\_Resi\_Skew\_Hybrid & \texttt{Neg(IfElse(Greater(Skew(\$open, 24), 0), TsRank(Resi(\$open, 24), 24), CsRank(SignedPower(\$returns, 0.5))))} \\
+104 & Median\_LogSwap & \texttt{Neg(IfElse(Greater(Med(\$returns, 24), 0), TsRank(Log(Div(\$close, Add(\$open, 1e-6))), 24), CsRank(Sign(Resi(\$close, 24)))))} \\
+105 & Median\_Skew\_Open & \texttt{Neg(IfElse(Greater(Skew(\$returns,24),0.4), CsRank(Sign(Resi(\$open,24))), TsRank(SignedPower(\$returns,0.6),24)))} \\
+106 & Median\_Volatility\_Extreme & \texttt{Neg(IfElse(Greater(Std(\$volume,24),Mean(Std(\$volume,24),48)), CsRank(Div(\$amt, Add(\$volume,1e-6))), TsRank(Div(\$returns, Add(Std(\$returns,24),1e-6)),24)))} \\
+107 & VWAP\_Vol\_HighVol\_Switch & \texttt{IfElse(Greater(Std(\$returns, 12), Med(Std(\$returns, 12), 48)), Mul(CsRank(Neg(Div(Sub(\$close, \$vwap), \$vwap))), CsRank(Div(\$volume, EMA(\$volume, 12)))), Neg(TsRank(Div(Sub(\$close, \$vwap), \$vwap), 24)))} \\
+108 & VWAP\_Vol\_Skew\_Switch & \texttt{Neg(IfElse(Less(Skew(\$returns, 24), -0.3), Mul(CsRank(Neg(Div(Sub(\$close, \$vwap), \$vwap))), CsRank(Div(\$volume, EMA(\$volume, 12)))), TsRank(Div(Sub(\$close, \$vwap), \$vwap), 12)))} \\
+109 & VWAP\_Vol\_Rsquare\_Switch & \texttt{IfElse(Greater(Rsquare(\$close, 24), 0.6), Neg(CsRank(Slope(\$close, 24))), Mul(CsRank(Neg(Div(Sub(\$close, \$vwap), \$vwap))), CsRank(Div(\$volume, EMA(\$volume, 12)))))} \\
+110 & PricePos\_Skew\_Slope & \texttt{Neg(Mul(CsRank(Div(Sub(\$close, \$low), Add(Sub(\$high, \$low), 1e-6))), CsRank(Mul(Skew(\$returns, 24), Slope(\$close, 12)))))} \\
+\end{longtable}
+\endgroup

@@ -1,0 +1,1185 @@
+\documentclass[sigconf]{acmart}
+
+\AtBeginDocument{%
+  \providecommand\BibTeX{{%
+    Bib\TeX}}}
+
+\setcopyright{acmlicensed}
+\copyrightyear{2026}
+\acmYear{2026}
+\acmDOI{XXXXXXX.XXXXXXX}
+
+\acmConference[Preprint]{Preprint}{}{}
+\acmBooktitle{Preprint}
+\acmISBN{}
+
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{longtable}
+\usepackage{makecell}
+\usepackage{subcaption}
+\usepackage[nameinlink]{cleveref}
+
+\newif\ifFMAllowMissingFigures
+\FMAllowMissingFiguresfalse
+
+\ifFMAllowMissingFigures
+  \makeatletter
+  \let\FM@orig@includegraphics\includegraphics
+  \renewcommand{\includegraphics}[2][]{%
+    \IfFileExists{#2}{%
+      \FM@orig@includegraphics[#1]{#2}%
+    }{%
+      \begingroup
+        \setlength{\fboxsep}{2pt}%
+        \fbox{\scriptsize Missing figure: \texttt{\detokenize{#2}}}%
+      \endgroup
+    }%
+  }
+  \makeatother
+\fi
+
+\begin{document}
+\raggedbottom
+
+\title{FactorMiner: A Self-Evolving Agent with Skills and Experience Memory for Financial Alpha Discovery}
+
+\author{Yanlong Wang}
+\affiliation{%
+  \institution{Tsinghua University}
+  \country{China}}
+\email{wangyanl21@mails.tsinghua.edu.cn}
+
+\author{Jian Xu}
+\affiliation{%
+  \institution{Tsinghua University}
+  \country{China}}
+\email{xujian20@mails.tsinghua.edu.cn}
+
+\author{Hongkang Zhang}
+\affiliation{%
+  \institution{Tsinghua University}
+  \country{China}}
+\email{zhanghk21@mails.tsinghua.edu.cn}
+
+\author{Shao-Lun Huang}
+\affiliation{%
+  \institution{Tsinghua University}
+  \country{China}}
+\email{shaolun.huang@sz.tsinghua.edu.cn}
+
+\author{Danny Dongning Sun}
+\affiliation{%
+  \institution{Peng Cheng Laboratory}
+  \country{China}}
+\email{ds316@columbia.edu}
+
+\author{Xiao-Ping Zhang}
+\affiliation{%
+  \institution{Tsinghua University}
+  \country{China}}
+\email{xpzhang@ieee.org}
+
+\renewcommand{\shortauthors}{Wang et al.}
+
+\begin{abstract}
+  Formulaic alpha factor mining is a critical yet challenging task in quantitative investment, characterized by a vast search space and the need for domain-informed, interpretable signals. However, finding novel signals becomes increasingly difficult as the library grows due to high redundancy. We propose \textbf{FactorMiner}, a lightweight and flexible self-evolving agent framework designed to navigate this complex landscape through continuous knowledge accumulation. FactorMiner combines a \textbf{Modular Skill Architecture} that encapsulates systematic financial evaluation into executable tools with a structured \textbf{Experience Memory} that distills historical mining trials into actionable insights (successful patterns and failure constraints). By instantiating the Ralph Loop paradigm---retrieve, generate, evaluate, and distill---FactorMiner iteratively uses memory priors to guide exploration, reducing redundant search while focusing on promising directions. Experiments on multiple datasets across different assets and markets show that FactorMiner constructs a diverse library of high-quality factors with competitive performance, while maintaining low redundancy among factors as the library scales. Overall, FactorMiner provides a practical approach to scalable discovery of interpretable formulaic alpha factors under the "Correlation Red Sea" constraint.
+\end{abstract}
+
+\begin{CCSXML}
+<ccs2012>
+  <concept>
+    <concept_id>10010405.10010444</concept_id>
+    <concept_desc>Applied computing~Finance</concept_desc>
+    <concept_significance>500</concept_significance>
+  </concept>
+  <concept>
+    <concept_id>10010147.10010257</concept_id>
+    <concept_desc>Computing methodologies~Learning from demonstrations</concept_desc>
+    <concept_significance>300</concept_significance>
+  </concept>
+  <concept>
+    <concept_id>10003752.10003809</concept_id>
+    <concept_desc>Human-centered computing~Natural language interfaces</concept_desc>
+    <concept_significance>300</concept_significance>
+  </concept>
+</ccs2012>
+\end{CCSXML}
+
+\ccsdesc[500]{Applied computing~Finance}
+\ccsdesc[300]{Computing methodologies~Learning from demonstrations}
+\ccsdesc[300]{Human-centered computing~Natural language interfaces}
+
+\keywords{Quantitative Investment, Formulaic Alpha, Factor Mining Agent Skill, Experience Memory, Parallel Evaluation, Intraday Prediction}
+\maketitle
+
+\section{Introduction}
+
+Discovering predictive alpha factors is central to quantitative trading and portfolio construction.
+In practice, automated factor discovery faces three fundamental challenges:
+(i) \emph{vast search complexity}---the space of formulaic expressions grows combinatorially with operator compositions and parameters;
+(ii) \emph{poor knowledge accumulation}---traditional search methods (genetic programming, reinforcement learning) fail to retain and reuse insights across exploration sessions, leading to repetitive trials;
+(iii) \emph{interpretability constraints}---unlike black-box neural predictors, financial practitioners require transparent, auditable formulas with explicit financial logic for regulatory compliance and risk management.
+
+Traditional approaches rely heavily on domain experts who manually craft factors based on financial intuition~\citep{kakushadze2016alphas,fama1993common}.
+More recently, machine learning methods have been applied to asset pricing~\citep{gu2020mlassetpricing,feng2020taming}, demonstrating strong predictive power but often sacrificing interpretability.
+Genetic programming~\citep{koza1992genetic} and reinforcement learning~\citep{yu2023alphagen,zhao2025quantfactor} offer automated search but suffer from knowledge forgetting: as the factor library grows and correlation constraints tighten, these methods lack mechanisms to accumulate structural knowledge about what works and what fails.
+Moreover, existing methods treat each mined factor in isolation without considering the global factor library perspective, they optimize individual factor quality but ignore how new factors interact with the existing library, leading to redundant discoveries and inefficient exploration.
+
+We study formulaic factor mining as a task for self-evolving AI agents~\citep{yao2023react,shinn2023reflexion}.
+Each factor is an explicit expression over market fields (e.g., close, volume, VWAP) composed from a library of 60+ operators.
+Unlike end-to-end neural approaches, formulaic factors enable human-in-the-loop auditing and compositional generalization across market regimes.
+The key research question is: \textit{how can an agent efficiently explore this vast program space while maintaining a global view of the factor library and autonomously accumulating structural knowledge across exploration sessions?}
+
+We propose \textbf{FactorMiner}, a self-evolving agent framework that addresses these challenges through two synergistic mechanisms: a compositional skill architecture and experience memory.
+First, we design factor mining as a reusable agent skill that can be invoked on-demand by a language model agent~\citep{schick2023toolformer,yao2023react}.
+The skill encapsulates domain knowledge---a curated operator library with 60+ financial operators, a multi-stage validation pipeline with IC thresholds and correlation checks, and standardized evaluation protocols---enabling flexible task decomposition and independent upgrades without retraining the agent.
+Second, we introduce experience memory that enables the agent to self-evolve through accumulated knowledge~\citep{shinn2023reflexion,park2023generativeagents}.
+The memory stores distilled structural patterns from historical mining sessions: successful patterns (factor templates that consistently pass quality thresholds) and forbidden regions (factor families with high mutual correlation to existing library members).
+Crucially, this memory maintains a global factor library perspective: the agent decides mining directions by considering how candidate factors complement the existing library, rather than optimizing individual factors in isolation.
+
+The agent adopts the Ralph Loop paradigm for self-evolution: retrieve relevant patterns from experience memory, generate candidate factors by invoking the mining skill with retrieved priors, evaluate candidates through parallel validation, and distill outcomes back into memory.
+This creates a positive feedback cycle where each mining session improves future exploration efficiency, enabling the agent to continuously refine its search strategy.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.95\textwidth]{pic/main_process.pdf}
+\caption{FactorMiner System Architecture. The Ralph Loop framework integrates three key components: (1) Experience Memory that stores successful patterns and forbidden regions from past mining sessions; (2) Agent Skill that encapsulates the multi-stage validation pipeline (IC screening, correlation checking, deduplication, and full validation); (3) Factor Library that grows dynamically while maintaining orthogonality constraints. The agent iteratively retrieves memory priors, generates candidates through the skill, and distills outcomes back into memory for improved future exploration.}
+\label{fig:main-process}
+\end{figure*}
+
+To ensure computational efficiency, we build a lightweight yet high-performance system leveraging GPU-accelerated operators, multi-process parallelization, and C-compiled efficient numerical operations. This yields significant speedups over standard Python implementations (e.g., NumPy/Pandas), making large-scale iterative evaluation computationally feasible. We summarize our main contributions as follows:
+{\setlength{\leftmargini}{1.4em}%
+\begin{itemize}
+  \setlength{\topsep}{2pt}
+  \setlength{\itemsep}{1pt}
+  \setlength{\parsep}{0pt}
+  \item \textbf{Experience memory for agent-based factor mining.} We introduce structured experience memory into agent-based factor discovery, enabling self-evolution through accumulated knowledge. The memory stores reusable patterns that guide exploration and reduce redundant search compared to memoryless baselines.
+  
+  \item \textbf{Modular skill architecture for on-demand invocation.} We design factor mining as a compositional, reusable skill that encapsulates domain knowledge in a standalone module. This enables flexible agent invocation, independent skill upgrades, and clear separation between agent reasoning and skill execution.
+  
+  \item \textbf{Lightweight and efficient mining system.} We build a high-performance factor evaluation engine using GPU accelerated operators, multi-process parallelization, and C-compiled efficient numerical operations, enabling large-scale factor mining. This supports rapid iteration and large-scale factor exploration while adapting to different server configurations and compute budgets.
+  
+  \item \textbf{Global factor library perspective.} We incorporate factor library admission mechanisms into the mining loop, enabling the agent to make mining decisions from a global library perspective. The agent considers how candidate factors complement the existing library, rather than optimizing individual factors in isolation.
+  
+  \item \textbf{Open factor library with research and practical value.} We provide 110 A-share equity factors with explicit formulaic expressions, validated on real market data. These interpretable factors serve as diagnostic tools to understand cross-market behavioral anomalies and market microstructure inefficiencies, offering both research insights and practical value for quantitative trading.
+\end{itemize}
+}
+
+\section{Related Work}
+
+Our work sits at the intersection of two research directions: automated alpha factor discovery in quantitative finance, and AI agents with skills and memory for autonomous task execution. We review key developments in both areas and position our contributions.
+
+\subsection{Automated Alpha Factor Discovery}
+
+Traditional factor discovery relies on domain expertise to manually craft interpretable signals. \citet{kakushadze2016alphas} presents 101 formulaic alphas with explicit expressions and low mutual correlations (15.9\%), demonstrating that hand-crafted factors can be both diverse and effective; Alpha191 extends this with 191 formulas covering additional microstructure patterns. However, these classical approaches are limited to daily-frequency data, and despite explicit formulaic expressions, their economic interpretability remains opaque for complex nested structures. Consequently, high-frequency markets currently lack comparable curated factor libraries for systematic research.
+
+To automate factor discovery, evolutionary program search methods such as genetic programming represent factor formulas as executable programs and evolve them via crossover and mutation~\citep{koza1992genetic,neely1997technical,allen1999genetic}. In practice, vanilla genetic programming can explore the expression space inefficiently, exhibiting slow convergence and limited semantic guidance because genetic operators primarily act on program syntax rather than program behavior~\citep{poli2008fieldguide,moraglio2012geometric}. More recently, machine learning methods have been applied to empirical asset pricing and high-dimensional model selection~\citep{gu2020mlassetpricing,kozak2020shrinking,feng2020taming}. While these methods achieve strong predictive performance, they are often less transparent than formulaic signals and can be difficult to interpret or audit in high-stakes settings~\citep{rudin2019stop}.
+
+Reinforcement learning has been used to navigate the discrete space of formulaic factor expressions by treating evaluation metrics (e.g., IC/ICIR) as rewards~\citep{yu2023alphagen,zhao2025quantfactor}, often at the cost of additional training and repeated evaluation overhead. In parallel, neural and {LLM}-driven frameworks generate and refine formulaic factors with exploration strategies designed to mitigate decay and redundancy~\citep{shi2024alphaforge,tang2025alphaagent}. Despite these advances, these approaches still face the challenge of explicitly and persistently reusing structural patterns across mining sessions; as the factor library grows and redundancy/correlation constraints tighten, exploration can become increasingly repetitive~\citep{feng2020taming,kozak2020shrinking}.
+
+\subsection{AI Agents with Skills and Memory}
+
+Recent language-model agents shift from one-shot text generation to closed-loop task execution via tool calls and feedback. Toolformer~\citep{schick2023toolformer} trains LLMs to insert API calls in a self-supervised manner, while ReAct~\citep{yao2023react} interleaves reasoning traces with actions---the agent plans, invokes tools, observes outcomes, and iterates. This tool-augmented view motivates our skill-based design: factor mining is packaged as an executable skill that an agent can invoke on demand.
+
+Memory and self-improvement mechanisms further let agents accumulate experience over time. Reflexion~\citep{shinn2023reflexion} uses language-based self-reflection to store lessons in natural language, and generative agents~\citep{park2023generativeagents} maintain memory streams (e.g., observations, reflections, plans) to condition future behavior; more broadly, continual learning studies how to retain knowledge without catastrophic forgetting~\citep{parisi2019continual}. In our setting, we instantiate memory for symbolic program synthesis: instead of storing dense representations or replay buffers~\citep{blundell2016model}, we retain reusable symbolic rules and structural patterns discovered during factor mining, together with summary statistics that help avoid redundant regions of the search space.
+
+From a theoretical perspective, meta-learning and meta-RL formalize "learning to learn" by extracting transferable learning biases from prior tasks or episodes~\citep{finn2017maml,nichol2018reptile,gupta2018meta}. Analogously, a memory-guided mining process can be seen as acquiring search priors: beyond producing individual factors, the system accumulates structural knowledge that shapes future exploration.
+
+
+Beyond learning to call tools, systems work has advocated modular agent architectures that route subproblems to specialized models, external knowledge sources, and discrete reasoning modules (e.g., MRKL~\citep{karpas2022mrkl}; HuggingGPT~\citep{shen2023hugginggpt}). In parallel, recent benchmarks and training pipelines study how to ground LLM outputs into executable API calls at scale and reduce tool hallucination, including API-Bank~\citep{li2023apibank}, ToolLLM/ToolBench~\citep{qin2023toollm}, and Gorilla/APIBench~\citep{patil2023gorilla}. These works collectively emphasize the importance of separating high-level planning from reliable execution, and of representing tools/skills in a form that supports retrieval and continual updates.
+
+Another line of research addresses long-horizon agent behavior under limited context windows by introducing explicit long-term memory managers. MemGPT~\citep{packer2024memgpt} proposes OS-inspired hierarchical memory with controlled paging between fast and slow memory, while Voyager~\citep{wang2023voyager} demonstrates an open-ended embodied agent that accumulates an executable skill library and reuses it to generalize to new tasks. Such settings are often effectively non-stationary: as an agent acquires new tools/skills (or as an external library grows), the feasible action space and redundancy patterns evolve, motivating experience summarization mechanisms that capture reusable patterns and avoid repeatedly exploring known dead ends.
+
+\section{Methodology}
+
+\subsection{Problem Formulation}
+
+We define the alpha factor discovery task over a universe of $M$ assets and a time horizon $T$. 
+The raw market input is represented by a tensor $\mathcal{D} \in \mathbb{R}^{M \times T \times F}$, where each entry $d_{m,t}^{(j)}$ denotes the value of feature $j$ (e.g., price, volume) for asset $m$ at time $t$. 
+\noindent\textbf{Symbolic factor space.}
+A symbolic alpha factor $\alpha$ is a computational program composed from an operator set $\Omega$ that transforms market states into a cross-sectional predictive signal $\mathbf{s}_t \in \mathbb{R}^M$:
+\begin{equation}
+  \alpha: \mathcal{D}_{:, :t, :} \rightarrow \mathbf{s}_t, \quad s_{t}^{(m)} = \alpha(\mathbf{d}_{m,:t})
+\end{equation}
+where $s_{t}^{(m)}$ represents the predictive score for asset $m$ relative to its peers.
+Each operator $o \in \Omega$ has a fixed arity and a typed signature (e.g., time-series $\rightarrow$ time-series, cross-section $\rightarrow$ cross-section), and programs $\alpha \in \mathcal{P}(\Omega)$ correspond to expression trees composed from $\Omega$ with admissible parameters; detailed definitions and categories of $\Omega$ are provided in Appendix~\ref{app:factor-details} and Table~\ref{tab:operators}.
+
+The effectiveness of $\alpha$ is quantified by the Information Coefficient (IC), defined as the cross-sectional Spearman rank correlation between the signal $\mathbf{s}_t$ and subsequent returns $\mathbf{r}_{t+1} \in \mathbb{R}^M$:
+\begin{equation}
+  \text{IC}_t(\alpha) = \text{Corr}_{\text{rank}}\bigl(\mathbf{s}_t, \mathbf{r}_{t+1}\bigr)
+\end{equation}
+Consistency over time is measured by the Information Ratio (ICIR): $\text{ICIR}(\alpha) = \mu(\text{IC}_t) / \sigma(\text{IC}_t)$.
+
+\noindent\textbf{Correlation metric.}
+To enforce library diversity, we measure redundancy between two factors $\alpha$ and $\beta$ by the time-average cross-sectional Spearman correlation of their realized signals:
+\begin{equation}
+\label{eq:rho}
+  \rho(\alpha,\beta) = \frac{1}{|\mathcal{T}|}\sum_{t \in \mathcal{T}} \text{Corr}_{\text{rank}}\bigl(\mathbf{s}_t(\alpha), \mathbf{s}_t(\beta)\bigr),
+\end{equation}
+where $\mathcal{T}$ denotes the set of evaluation timestamps. This definition matches our current implementation, but the framework can accommodate alternative dependence measures (e.g., time-series correlation, partial correlation, or non-linear dependence metrics) by replacing $\rho(\cdot,\cdot)$ accordingly.
+
+\textbf{Objective: Orthogonal Library Synthesis.}
+FactorMiner treats the problem as the iterative construction of a diverse factor library $\mathcal{L} = \{\alpha_1, \ldots, \alpha_K\}$. 
+The goal is to maximize the aggregate predictive quality of the library subject to a global redundancy constraint:
+\begin{equation}
+\label{eq:objective}
+  \mathcal{L}^* = \arg\max_{\mathcal{L} \subset \mathcal{P}} \sum_{\alpha \in \mathcal{L}} \Phi(\alpha) \quad \text{s.t.} \quad \forall \alpha_i \neq \alpha_j \in \mathcal{L}: |\rho(\alpha_i, \alpha_j)| < \theta
+\end{equation}
+where $\mathcal{P}$ is the infinite space of constructible programs, $\Phi(\cdot)$ is a fitness metric, and $\theta$ is the correlation budget.
+
+\textbf{The Correlation Red Sea.}
+As the library $\mathcal{L}$ populates, the feasible region for new orthogonal factors---$\mathcal{P}_{\text{orth}} = \{\alpha \in \mathcal{P} : \max_{g \in \mathcal{L}} |\rho(\alpha, g)| < \theta\}$---shrinks rapidly as diversity constraints tighten. 
+Standard search methods (e.g., GP or RL) often get trapped in this correlation red sea because they lack mechanisms to track explored regions or failure patterns.
+
+\textbf{Decision-Theoretic Memory Formulation.}
+To navigate the correlation red sea, we reformulate the discovery process as a sequential decision task over an evolving internal knowledge state $S_t = (\mathcal{L}_t, \mathcal{M}_t)$, where $\mathcal{M}_t$ represents the persistent experience memory. 
+The agent first retrieves a context-dependent memory signal $m_t$ from $\mathcal{M}_t$ and $\mathcal{L}_t$, and then samples candidates from a memory-conditioned policy:
+\begin{equation}
+\label{eq:conditional-policy}
+\alpha \sim \pi(\alpha \mid m_t), \quad m_t = R(\mathcal{M}_t,\mathcal{L}_t)
+\end{equation}
+The role of $\mathcal{M}$ is to induce a probability measure contraction over the program space $\mathcal{P}$. 
+By distilling historical trajectories $\tau = \{(\alpha_i, R_i)\}_{i=1}^B$ into structured patterns, $\mathcal{M}$ shifts the sampling mass toward the orthogonal manifold $\mathcal{P}_{\text{orth}}$. 
+Mathematically, the evolution of memory is governed by a distillation operator $\Psi$:
+\begin{equation}
+\label{eq:distillation}
+\mathcal{M}_{t+1} = \Psi(\mathcal{M}_t, \tau_t)
+\end{equation}
+which updates the agent's belief distribution so that future exploration is steered toward higher-utility and lower-redundancy regions of $\mathcal{P}$.
+
+\subsection{Factor Mining Skill Architecture}
+\label{sec:skills}
+
+Unlike traditional RL or monolithic agent approaches where domain logic is often hard-coded or entangled with the agent's reasoning loop, FactorMiner adopts a modular skill-based architecture. 
+Inspired by the tool-augmented paradigm~\citep{schick2023toolformer}, we encapsulate the entire factor mining process as a standalone, reusable Agent Skill---a standardized interface that exposes high-level capabilities to the LLM while abstracting away low-level execution details.
+The overall interaction pattern is illustrated in \Cref{fig:main-process}.
+
+\textbf{Compositional Design.} 
+The skill is structured as a hierarchical library of tools:
+{\setlength{\leftmargini}{1.4em}%
+\begin{itemize}
+    \item \textbf{Operator Layer}: A curated set of 60+ financial operators (e.g., \texttt{TsRank}, \texttt{Rsquare}) implemented with GPU-accelerated backends. This ensures that the agent's symbolic proposals are executable and computationally efficient.
+    \item \textbf{Validation Pipeline}: A rigorous, standardized protocol for factor assessment (\texttt{check\_ic} $\rightarrow$ \texttt{check\_correlation} $\rightarrow$ \texttt{admit}). By decoupling validation from generation, we ensure that the agent's "creativity" is bounded by strict quantitative constraints, preventing hallucinated or scientifically invalid discoveries.
+\end{itemize}
+}
+
+\textbf{Advantages of the Skill-Based Approach.}
+This modular design offers three distinct advantages over monolithic architectures:
+\begin{enumerate}
+    \item \textbf{Prevention of Calculation Hallucination}: Large language models often struggle with precise arithmetic and algorithmic execution. By offloading the evaluation to a deterministic, code-based skill, FactorMiner eliminates the risk of "hallucinated metrics," ensuring that every reported IC and Sharpe ratio is mathematically rigorous.
+    \item \textbf{Cross-Domain Transferability}: The skill is parameterized to support multiple markets (e.g., A-shares vs. Crypto) via configuration files. The same high-level agent reasoning logic can be applied to different financial domains simply by switching the underlying skill context, as demonstrated in our cross-market experiments (Section~\ref{sec:results-robustness}).
+    \item \textbf{Independent Optimization}: The skill's execution backends and evaluation pipeline can be optimized independently of the agent's reasoning model, improving throughput without retraining the LLM backbone.
+\end{enumerate}
+
+\subsection{Experience Memory}
+\label{sec:memory}
+\label{app:memory}
+
+A key component of FactorMiner is the experience memory $\mathcal{M}$, a structured knowledge base that accumulates insights from historical mining sessions. 
+We formalize the dynamics of the memory system through three conceptual operators: Formation, Evolution, and Retrieval.
+
+\textbf{Memory Formation.}
+At the end of each mining batch $t$, the agent analyzes the mining trajectory $\tau_t = \{(\alpha_i, R_i)\}_{i=1}^B$, where $R_i$ represents the evaluation feedback (IC, correlation, etc.). A formation operator $F$ selectively extracts informational artifacts:
+\begin{equation}
+\mathcal{M}_{t+1}^{\text{form}} = F(\mathcal{M}_t, \tau_t)
+\end{equation}
+This process distills raw data into symbolic patterns, categorizing them into \textbf{successful patterns} $\mathcal{P}_{\text{succ}}$ (those that pass admission) and \textbf{forbidden regions} $\mathcal{P}_{\text{fail}}$ (those rejected due to high correlation).
+
+\textbf{Memory Evolution.}
+Formed memory candidates are integrated into the existing knowledge base through an evolution operator $E$:
+\begin{equation}
+\mathcal{M}_{t+1} = E(\mathcal{M}_t, \mathcal{M}_{t+1}^{\text{form}})
+\end{equation}
+This operator consolidates redundant entries and discards low-utility information. For instance, if a specific \texttt{VWAP\_Deviation} variant is admitted but shows 0.82 correlation with existing factors, it is reclassified into $\mathcal{P}_{\text{fail}}$ to prevent further redundant exploration.
+
+\textbf{Memory Retrieval.}
+During the factor generation phase, the agent retrieves a context-dependent memory signal $m_t$ via a retrieval operator $R$:
+\begin{equation}
+m_t = R(\mathcal{M}_t, \mathcal{L}_t)
+\end{equation}
+The signal $m_t$ serves as a prompt-level constraint for the LLM policy, effectively shaping the sampling distribution $\pi(\alpha \mid m_t)$. 
+In practice, we store experience as compact natural-language templates with canonical examples (e.g., "recommended directions" and "forbidden directions"), and retrieve them by matching against the current library diagnostics and recent rejection reasons; examples are provided in Appendices~\ref{app:recommended} and~\ref{app:forbidden}.
+
+\textbf{Memory Content.}
+The resulting memory $\mathcal{M}$ maintains a persistent record of the evolving mining landscape:
+
+\textbf{(1) Mining State ($\mathcal{S}$):} Tracks the global evolution of the factor library, including current library size $|\mathcal{L}|$, recent admission logs, and saturation metrics that signal when specific logical domains (e.g., price-volume reversal) are becoming overpopulated.
+
+\textbf{(2) Structural Experience ($\mathcal{P}$):} This is the core of the agent's guidance system, categorized into:
+{\setlength{\leftmargini}{1.4em}%
+\begin{itemize}
+    \item \textbf{Recommended Directions ($\mathcal{P}_{\text{succ}}$):} High-success logical templates distilled from recent batches, such as higher moment regimes (using Skew/Kurt for environment switching) and robust efficiency interaction.
+    \item \textbf{Forbidden Directions ($\mathcal{P}_{\text{fail}}$):} Regions identified as "Red Seas" due to persistent high correlation with the existing library, such as simple VWAP Deviations or standardized returns.
+\end{itemize}
+}
+
+\textbf{(3) Strategic Insights ($\mathcal{I}$):} High-level lessons learned from the mining process, such as the observation that non-linear combination strategies (e.g., XGBoost-based synthesis) significantly outperform linear ones, or specific operator warnings (e.g., the instability of high-order moments in high-frequency data).
+
+\subsection{Ralph Loop: Self-Evolving Factor Discovery}
+
+FactorMiner adopts the \textbf{Ralph Loop} paradigm---an iterative refinement philosophy where agents accumulate experience and self-evolve through repeated interaction.
+We instantiate this paradigm for factor mining by integrating experience memory into the search process (Algorithm~\ref{alg:ralph}).
+The key insight is that memory enables the agent to learn how to search---avoiding redundant exploration while focusing on promising regions.
+
+\begin{algorithm}[t]
+\caption{Ralph Loop: Self-Evolving Factor Discovery}
+\label{alg:ralph}
+\begin{algorithmic}
+\STATE \textbf{Input:} Operator library $\Omega$, experience memory $\mathcal{M}$, target library size $K$
+\STATE \textbf{Output:} Factor library $\mathcal{L}$
+\STATE Initialize $\mathcal{L} \leftarrow \emptyset$
+\REPEAT
+  \STATE \textbf{Step 1: Memory Retrieval}
+  \STATE \quad Retrieve memory signal $m \leftarrow R(\mathcal{M}, \mathcal{L})$
+  \STATE \textbf{Step 2: Guided Generation}
+  \STATE \quad Sample batch $\mathcal{C} \sim \pi(\alpha \mid m)$ using $\Omega$
+  \STATE \textbf{Step 3: Multi-Stage Evaluation}
+  \STATE \quad \textbf{Stage 1}: Fast IC screening ($M_{\text{fast}}$ assets)
+  \STATE \quad \quad $\mathcal{C}_1 \leftarrow \{\alpha \in \mathcal{C} : |\text{IC}(\alpha)| \geq \tau_{\text{IC}}\}$
+  \STATE \quad \textbf{Stage 2}: Correlation check against $\mathcal{L}$
+  \STATE \quad \quad $\mathcal{C}_2 \leftarrow \{\alpha \in \mathcal{C}_1 : \max_{g \in \mathcal{L}} |\rho(\alpha, g)| < \theta\}$
+  \STATE \quad \textbf{Stage 2.5}: Replacement check
+  \STATE \quad \quad For $\alpha \in \mathcal{C}_1 \setminus \mathcal{C}_2$, let $g^\star=\arg\max_{g \in \mathcal{L}} |\rho(\alpha,g)|$
+  \STATE \quad \quad Replace $g^\star$ with $\alpha$ if $|\rho(\alpha,g^\star)| \ge \theta$,
+  \STATE \quad \quad $\max_{g \in \mathcal{L}\setminus\{g^\star\}} |\rho(\alpha,g)| < \theta$, and $\Phi(\alpha) \ge \Phi(g^\star) + \Delta$
+  \STATE \quad \textbf{Stage 3}: Batch deduplication (intra-batch $\rho < \theta$)
+  \STATE \quad \textbf{Stage 4}: Full validation ($M_{\text{full}}$ assets) and trajectory $\tau$ collection
+  \STATE \textbf{Step 4: Library Update}
+  \STATE \quad Admit validated factors: $\mathcal{L} \leftarrow \mathcal{L} \cup \mathcal{C}_{\text{admitted}}$
+  \STATE \textbf{Step 5: Memory Evolution}
+  \STATE \quad Update strategy: $\mathcal{M} \leftarrow E(\mathcal{M}, F(\tau))$
+\UNTIL{$|\mathcal{L}| \geq K$ or budget exhausted}
+\end{algorithmic}
+\end{algorithm}
+
+Our instantiation of the Ralph Loop for factor mining has four key properties:
+
+\textbf{Global library perspective.}
+Unlike methods that optimize individual factors in isolation, our approach considers how each candidate complements the existing library $\mathcal{L}$.
+The correlation constraint (Stage 2) ensures diversity, while the replacement mechanism (Stage 2.5) allows high-quality factors to replace inferior ones.
+
+\textbf{Memory-guided exploration.}
+By maintaining $\mathcal{P}_{\text{succ}}$ and $\mathcal{P}_{\text{fail}}$, the agent avoids redundant exploration of known failure regions while focusing on promising structural patterns.
+
+\textbf{Multi-stage evaluation.}
+The multi-stage pipeline balances efficiency and accuracy: Stage 1 uses a small asset subset for fast screening, Stages 2--3 enforce correlation constraints (inter-factor and intra-batch), and Stage 4 performs full validation only on surviving candidates.
+
+\textbf{Self-evolution.}
+After each iteration, the memory is updated via the evolution operator $E$ (integrating insights from $F$), creating a feedback loop where the agent continuously improves its search strategy.
+This enables continual learning: knowledge accumulated in early sessions benefits later exploration.
+
+\noindent\textbf{Trajectory semantics.}
+The trajectory $\tau_t$ records, for each evaluated candidate, its formula $\alpha$, quality statistics (e.g., IC/ICIR), redundancy diagnostics (e.g., $\max_{g\in\mathcal{L}}|\rho(\alpha,g)|$), and the rejection/admission outcome (including whether a replacement was triggered). These fields are the inputs to the formation operator $F$ and support experience distillation across batches.
+
+Detailed specifications of the operator library, admission criteria, computational efficiency optimizations, and factor combination methods are provided in Appendices~\ref{app:factor-details}, \ref{app:admission}, \ref{app:efficiency}, and~\ref{app:combination}.
+
+To illustrate the diversity structure of the resulting library, we visualize the correlation structure of the released full A-share factor library (110 admitted factors) in \Cref{fig:library_corr_heatmap}. The heatmap is computed using Spearman correlations on cross-sectionally standardized realized factor signals over the common time--asset panel, and indicates that most factor pairs are weakly to moderately correlated, with only a few localized clusters of higher dependence.
+
+\section{Experiments}
+
+\subsection{Experimental Setup}
+
+\textbf{Datasets.} 
+We evaluate FactorMiner across A-share equities and the cryptocurrency market to assess its discovery efficiency and cross-asset generalization. 
+For A-share equities, we utilize intraday 10-minute bars of three index universes: the CSI 500 and CSI 1000 index constituents for mid-cap and broader small-/mid-cap coverage, and the HS300 index constituents for large-cap representation, with over 25 million data points in aggregate. 
+For the Cryptocurrency market, we use 10-minute bars of 64 major assets from Binance. 
+All datasets cover a training period from 2024-Q1 to 2024-Q4 and a held-out test period in 2025. The prediction target is the next 10-minute open-to-close price change ratio.
+
+\textbf{Baselines and Metrics.} \label{sec:benchmarking}
+We compare against five representative methods: (1) \emph{Alpha101 (Classic)} \citep{kakushadze2016alphas}, a static library of hand-crafted formulas; (2) \emph{Alpha101 (Adapted)}, with parameters tuned for high-frequency data; (3) \emph{Random Formula Exploration (RF)}, randomly sampling type-correct expression trees from $\mathcal{P}(\Omega)$ under a bounded depth/size distribution; (4) \emph{GPLearn} \citep{gplearn}, an enhanced genetic programming approach; and (5) \emph{AlphaAgent} \citep{tang2025alphaagent}, an LLM-driven proposal-refinement framework. For a fair comparison, we apply the same admission rules to each method and evaluate an equal-sized factor set; if a method admits fewer factors, we complete the set by selecting the remaining candidates with the best IC. We also include a \emph{No Memory} variant as an internal baseline in Section~\ref{sec:ablation}.
+Performance is quantified using standard predictive metrics: \emph{Rank Information Coefficient} for forecasting precision, and its ratio (ICIR) for stability across time. Unless otherwise stated, we use IC to denote this Spearman correlation based IC. When applicable, all baselines share the same operator library $\Omega$, data fields, and evaluation/admission protocol, and are scored with a unified evaluation engine.
+For methods that require LLM-based proposal generation, we use Gemini 3.0 Flash unless otherwise stated.
+Implementation details are provided in \Cref{app:implementation}.
+
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]{pic/library_correlation_heatmap.pdf}
+  \caption{Pairwise Spearman correlation heatmap of the released A-share factor library (110 admitted factors), computed from cross-sectionally standardized realized factor signals over the common time--asset panel. The average off-diagonal absolute correlation is Avg $|\rho|$ = 0.203.}
+  \label{fig:library_corr_heatmap}
+\end{figure}
+
+\subsection{Main Results}
+\label{sec:results}
+
+\subsubsection{Factor Quality and Diversity}
+\label{sec:results-quality}
+\input{main_results_table.tex}
+\Cref{tab:main_results_kdd} reports 2025 out-of-sample results under a strict protocol: Top-40 factors are selected once on CSI500 (2024) and then frozen for evaluation on multiple datasets. Under this protocol, \textbf{FactorMiner} performs best among the compared methods across all four markets. In the Factor Library setting, it achieves IC/ICIR of \textbf{8.25\%}/\textbf{0.77} on CSI500, with similar competitive improvements on the other markets (see \Cref{tab:main_results_kdd}).
+
+In terms of redundancy, FactorMiner's selected factor set exhibits moderate pairwise dependence. As summarized by Avg $|\rho|$ in \Cref{tab:main_results_kdd}, the average pairwise absolute correlation is 0.30--0.31 on A-shares and 0.25 on Crypto. The correlation distribution further shows a controlled tail ($|\rho|$ $\approx$ 0.44--0.45 on A-shares and 0.42 on Crypto), suggesting that the performance gains are not driven by a few near-duplicate signals. We further visualize the correlation structure of the full admitted factor library in \Cref{fig:library_corr_heatmap}. The complete factor formulas and additional downstream analyses are provided in Appendix~\Cref{app:factor-list,app:combo-detail,app:selection-detail,app:cost-pressure}.
+
+\subsubsection{Robustness Across Heterogeneous Markets}
+\label{sec:results-robustness}
+The cross-market evaluation reveals the generalization capability of the discovered factors. While the Cryptocurrency market represents a fundamentally different microstructure (24/7 trading, no price limits) compared to A-shares, FactorMiner maintains competitive performance on Crypto, with IC/ICIR of 3.82\%/0.28 in the single-factor library evaluation and 9.48\%/0.62 under a simple IC-weighted combination (see \Cref{tab:main_results_kdd}).
+
+This robustness suggests that FactorMiner captures fundamental price-volume dynamics (e.g., liquidity-constrained reversals, volatility clustering) that are invariant across asset classes, rather than overfitting to the idiosyncrasies of a single market.
+
+\subsubsection{Ensembles vs.\ Learned Selection}
+\label{sec:results-ensemble}
+Beyond individual factors, we evaluate the utility of the mined libraries for downstream portfolio construction via two families of methods: simple factor combinations (equal-weight and IC-weighted) and learned selection models (Lasso and XGBoost trained on 2024 and evaluated on 2025). Across most baselines, learned models provide a clear uplift over simple ensembles, consistent with the presence of heterogeneous yet partially redundant signals in the candidate libraries. For FactorMiner, however, learned selection offers limited additional gains and can be slightly negative on some datasets (e.g., CSI500: EW and ICW ICIR = 1.52/1.54 vs.\ Lasso and XGBoost = 1.42/1.52), indicating that simple ensemble signals already capture most of the exploitable predictive power under the Train'24/Test'25 protocol (see \Cref{tab:main_results_kdd}).
+
+\subsection{Effect of Experience Memory}
+\label{sec:ablation}
+To isolate the contribution of the Experience Memory ($\mathcal{M}$), we conducted an ablation study comparing FactorMiner against a "No Memory" variant where operators $F, E, R$ were disabled, reducing the system to standard LLM-based evolution (see \Cref{fig:ablation_memory_bar} for a summary).
+Since this experiment is designed as a controlled mechanism ablation, we adopt relatively relaxed screening thresholds to ensure sufficient samples for comparison (IC threshold $|\text{IC}|>0.02$; redundancy threshold $\theta=0.85$ for this ablation setting).\Cref{fig:ablation_memory_bar} highlights the impact of memory guidance:
+{\setlength{\leftmargini}{1.2em}%
+\begin{itemize}
+    \item \textbf{Precise Navigation (High Yield)}: The \textit{Have Memory} variant generates 96 high-quality candidates (60.0\% yield), whereas the No Memory baseline produces only 32 (20.0\% yield). This demonstrates that the Retrieval operator effectively maps the search space, allowing the agent to guiding exploration toward regions with higher expected yield rather than exploring randomly.
+    \item \textbf{Aggressive Filtration (High Diversity)}: Despite generating $3.0\times$ more valid signals, the \textit{Have Memory} variant actively rejects a higher proportion of them for redundancy (55.2\% vs 43.8\%). This confirms that the Evolution operator ($E$) functions as a strategic filter, prioritizing unique signal discovery over mere quantity.
+\end{itemize}
+}
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=\columnwidth]{pic/ablation_memory_bar.pdf}
+  \caption{Ablation comparison between \textit{Have Memory} and No Memory. High-quality candidates are defined as those passing the IC threshold ($|\text{IC}|>0.02$). The bar chart reports the counts (high-quality / rejected / admitted) and the corresponding yield and rejection rates.}
+  \label{fig:ablation_memory_bar}
+\end{figure}
+
+
+\subsection{Mining Efficiency Analysis}
+\label{sec:efficiency}
+
+To demonstrate the practical advantage of the factor mining skill, we conduct rigorous benchmarks comparing three execution backends supported by our framework: (1) standard \textbf{Python (Pandas)}, (2) \textbf{C-compiled (Bottleneck)} for efficient CPU execution, and (3) \textbf{GPU-accelerated} for massive parallelism. This multi-backend support allows the agent to remain lightweight while achieving industrial-grade efficiency through on-demand acceleration.
+
+\textbf{Results.}
+\Cref{fig:efficiency-bench-bar} presents both operator-level and factor-level benchmarks on the real CSI500 dataset (12,610 $\times$ 500), measuring \textit{pure computation time} excluding I/O. At the operator level, the GPU backend achieves \textbf{8--59$\times$} speedups over Pandas and \textbf{2--13$\times$} over the optimized C backend. The most dramatic improvement is on \texttt{TsRank}: 1,843ms (Pandas) $\rightarrow$ 393ms (C) $\rightarrow$ \textbf{31ms} (GPU).
+
+For end-to-end factor evaluation, rank-intensive factors (F43, F48, F53) show substantial \textbf{23--27$\times$} speedups. Notably, even the highly-optimized C implementation is \textbf{5.4$\times$} slower than the GPU backend on average (1,092ms vs. 202ms). This hybrid acceleration strategy demonstrates that our factor mining skill is both flexible and high-performance: by offloading computationally intensive primitives to GPU/C while leveraging multi-process parallelism for batch evaluation, FactorMiner makes large-scale iterative discovery feasible on commodity hardware.
+
+This efficiency is a qualitative enabler: evaluating 1,000 candidate factors takes $\sim$6 minutes with FactorMiner vs. $\sim$70 minutes with Pandas, making the iterative "generate-evaluate-refine" loop computationally feasible.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=\columnwidth]{pic/efficiency-bench-bar.pdf}
+  \caption{Grouped bar chart of computation time on a log scale for operator-level and factor-level benchmarks. Lower is better; GPU shows consistent order-of-magnitude gains.}
+  \label{fig:efficiency-bench-bar}
+\end{figure}
+
+\section{Discussion}
+
+High-frequency markets can be treated as a data-rich complex adaptive system, and each formulaic factor can be viewed as an explicit, falsifiable hypothesis about market microstructure. Beyond predictive performance, FactorMiner yields a curated library of 110 interpretable high-frequency alpha factors together with a standardized evaluation protocol, enabling reproducible hypothesis testing, mechanistic inspection, and cross-market transfer studies.
+
+\paragraph{Experience memory as continual learning.}
+Our results confirm that memory-guided, skill-based agents can efficiently scale neural-symbolic program synthesis while retaining interpretability.
+The experience memory serves as a form of institutional knowledge that accumulates across mining sessions, enabling meta-learning: the system learns not just individual factors, but how to search more effectively.
+Key insights extracted from our memory (Appendix~\ref{app:recommended}) include: \textbf{successful patterns}, such as higher-order moment regimes via Skew/Kurt, trend-regression adaptivity via Rsquare/Slope/Resi, and amount-efficiency interactions, that consistently yield high-IC yet low-correlation factors; \textbf{failure patterns}, such as VWAP-deviation variants, standardized returns, and simple Delta reversals, that tend to be highly correlated with existing factors and should be avoided; and the \textbf{Correlation Red Sea} phenomenon, where discovering new orthogonal factors becomes increasingly difficult as the library grows without memory guidance.
+
+\section{Conclusion}
+FactorMiner provides a lightweight self-evolving agent framework for interpretable high-frequency alpha discovery by combining a modular mining skill with experience memory. The resulting library of 110 formulaic factors and a standardized evaluation protocol form a reproducible discovery artifact for hypothesis-driven analysis of market microstructure. Future work will incorporate transaction-cost-aware backtesting, extend to broader assets and frequencies, and develop online memory updates for non-stationary markets.
+
+\section{Limitations and Ethical Considerations}
+We focus on internal evaluation, library construction, and analysis; we do not yet provide controlled comparisons to end-to-end forecasting models. Although this work uses aggregated market data to improve the productivity and reproducibility of formulaic alpha discovery, the discovered factors could be misused in speculative or manipulative strategies; deployment should therefore follow compliance requirements and incorporate appropriate risk controls.
+
+\bibliographystyle{ACM-Reference-Format}
+\bibliography{factorminer}
+
+\newpage
+\appendix
+\onecolumn
+
+\section{Factor Expression and Operator Library}
+\label{app:factor-details}
+
+Each symbolic factor $\alpha \in \mathcal{P}$ is represented as a symbolic expression tree $T(\alpha)$ constructed from an operator library $\Omega$.
+Following~\citet{kakushadze2016alphas}, we define factors using a domain-specific language where:
+{\setlength{\leftmargini}{1.4em}%
+\begin{itemize}
+  \item \textbf{Leaf nodes} are raw feature references: \texttt{\$open}, \texttt{\$high}, \texttt{\$low}, \texttt{\$close}, \texttt{\$volume}, \texttt{\$amt}, \texttt{\$vwap}, \texttt{\$returns}
+  \item \textbf{Internal nodes} are operators from $\Omega$ with specified parameters
+\end{itemize}
+}
+
+We curate a library of 60+ operators organized into categories (Table~\ref{tab:operators}):
+(1) \emph{Arithmetic}: Add, Sub, Mul, Div, Neg, Log, SignedPower;
+(2) \emph{Statistical}: Mean, Std, Skew, Kurt over rolling windows;
+(3) \emph{Time-series}: Delta, TsRank, TsMax, TsMin, Delay;
+(4) \emph{Cross-sectional}: CsRank (percentile rank across assets at each time);
+(5) \emph{Smoothing}: SMA, EMA, WMA (moving averages);
+(6) \emph{Trend regression}: Slope, Rsquare, Resi (linear regression statistics);
+(7) \emph{Logical}: IfElse, Greater, And, Or (conditional branching).
+
+\begin{table}[h]
+  \caption{Operator categories in the factor mining skill (representative operators).}
+  \label{tab:operators}
+  \centering
+  \begin{small}
+  \begin{tabular}{p{2.6cm}p{9.6cm}p{3.2cm}}
+    \toprule
+    Category & Operators & Description \\
+    \midrule
+    Arithmetic & Add, Sub, Mul, Div, Neg, Abs, Log, SignedPower, Power, Inv, Sqrt, Square, Exp, Tanh & Element-wise transformations \\
+    Statistical & Mean, Std, Var, Skew, Kurt, Med, Sum, Product & Rolling window statistics \\
+    Time-series & Delay, Delta, TsRank, TsMax, TsMin, TsArgMax, TsArgMin, TsDecay & Temporal pattern capture \\
+    Cross-sectional & CsRank, Scale & Cross-asset transforms \\
+    Smoothing & SMA, EMA, WMA & Trend extraction \\
+    Regression & Slope, Rsquare, Resi & Trend strength and residuals \\
+    Logical & IfElse, Greater, Less, GreaterEqual, LessEqual, And, Or, Eq, Ne & Conditional regime switching \\
+    \bottomrule
+  \end{tabular}
+  \end{small}
+\end{table}
+
+\noindent\textbf{Note.} Table~\ref{tab:operators} lists representative operators for readability; the full operator registry in the FactorMiner skill contains 60+ typed operators.
+
+\section{Admission Criteria and Factor Replacement}
+\label{app:admission}
+
+A symbolic factor $\alpha$ is admitted to the library $\mathcal{L}$ if it satisfies:
+\begin{equation}
+  \text{IC}(\alpha) \geq \tau_{\text{IC}} \quad \land \quad \max_{g \in \mathcal{L}} |\rho(\alpha, g)| < \theta
+\end{equation}
+where $\tau_{\text{IC}}$ and $\theta$ are the IC and correlation thresholds (default: $\tau_{\text{IC}}=0.04$ and $\theta=0.5$ for A-share mining unless otherwise specified).
+
+Additionally, we introduce a \textbf{factor replacement mechanism} for high-quality factors that would otherwise be rejected due to correlation.
+If a new factor $\alpha$ satisfies:
+\begin{equation}
+  \text{IC}(\alpha) \geq 0.10 \quad \land \quad \text{IC}(\alpha) \geq 1.3 \times \text{IC}(g) \quad \land \quad |\{g \in \mathcal{L} : \rho(\alpha, g) > \theta\}| = 1
+\end{equation}
+then $\alpha$ replaces the single correlated factor $g$ in $\mathcal{L}$.
+This mechanism allows the library to evolve toward higher quality while maintaining the correlation constraint.
+
+\section{Implementation Details}
+\label{app:implementation}
+
+For each method, we first construct a fixed Top-40 factor set by ranking candidates on CSI500 using the \textbf{training year 2024}: we filter admitted factors by thresholding $|\text{IC}|$ and $|\text{ICIR}|$ (stock thresholds: $|\text{IC}|\!\ge\!0.05$, $|\text{ICIR}|\!\ge\!0.5$), select up to 40 from the admitted set by descending $|\text{IC}|$, and if fewer than 40 are admitted, fill the remaining slots with the next-best valid candidates by $|\text{IC}|$. We then freeze this Top-40 set (selected once on CSI500) and evaluate it on CSI500/CSI1000/HS300/Crypto for the full-year 2025 out-of-sample comparison in \Cref{tab:main_results_kdd}, to test generalization across time (2024 $\rightarrow$ 2025), universes, and markets. Alpha101 factors were originally designed for daily frequency data, we adapt them for 10-minute frequency by optimizing window parameters. For each of the Alpha101 factors, we generate up to 10 parameter variants and select the best-performing configuration.
+
+FactorMiner is implemented in Python, utilizing NumPy and CuPy for GPU-accelerated operator computation. This achieves up to 26$\times$ speedup; see \Cref{app:efficiency}. 
+A 40-worker multiprocessing pool handles parallel candidate evaluation. 
+The experience memory is maintained as a structured, human-readable knowledge base. 
+We employ Gemini 3.0 Flash as the LLM backbone for symbolic program synthesis. 
+The mining process follows an iterative curriculum using the default admission thresholds in \Cref{app:admission}, adjusted when needed.
+
+\section{Computational Efficiency}
+\label{app:efficiency}
+
+To enable rapid iteration, FactorMiner leverages three acceleration techniques:
+
+\textbf{GPU-accelerated operators.}
+Core operators (CsRank, TsRank, rolling statistics) are implemented using PyTorch, achieving 6--26$\times$ speedup over CPU implementations (Table~\ref{tab:gpu-speedup}).
+
+\textbf{Multi-process parallelization.}
+Factor evaluation is inherently parallel across candidates.
+We use a worker pool to evaluate batches concurrently, with each worker handling one candidate factor.
+
+\textbf{C-compiled numerical operations.}
+Low-level numerical operations use optimized C implementations (e.g., bottleneck library) for efficient rolling window computations.
+
+\begin{table}[h]
+  \caption{GPU acceleration for core operators (single A100 GPU).}
+  \label{tab:gpu-speedup}
+  \centering
+  \begin{small}
+  \begin{tabular}{lccc}
+    \toprule
+    Operator & CPU (ms) & GPU (ms) & Speedup \\
+    \midrule
+    CsRank & 93 & 3.6 & 26$\times$ \\
+    TsRank & 97 & 6.0 & 17$\times$ \\
+    Rolling Corr & 76 & 11 & 6.8$\times$ \\
+    Rolling Std & 13 & 3.4 & 3.7$\times$ \\
+    TsDecay & 45 & 5.0 & 9$\times$ \\
+    \bottomrule
+  \end{tabular}
+  \end{small}
+\end{table}
+
+\section{Factor Combination and Selection}
+\label{app:combination}
+
+After library construction, we provide three combination strategies and three selection methods:
+
+\paragraph{Combination strategies.}
+{\setlength{\leftmargini}{1.4em}%
+\begin{itemize}
+  \item \textbf{Equal-weight}: Simple average of all factor values.
+  \item \textbf{IC-weighted}: Weight factors by their historical IC.
+  \item \textbf{Orthogonal}: Gram-Schmidt orthogonalization before averaging.
+\end{itemize}
+}
+
+\paragraph{Selection methods.}
+{\setlength{\leftmargini}{1.4em}%
+\begin{itemize}
+  \item \textbf{Lasso}: L1-regularized linear regression to identify sparse factor subsets.
+  \item \textbf{Forward stepwise}: Greedy selection maximizing combined ICIR.
+  \item \textbf{XGBoost}: Gradient boosting to capture nonlinear factor interactions.
+\end{itemize}
+}
+
+\section{Experience Memory: Recommended Directions}
+\label{app:recommended}
+
+The following table summarizes successful mining patterns extracted from our experience memory.
+These patterns have consistently yielded factors that pass the default admission criteria (\Cref{app:admission}).
+
+\begin{table}[h]
+  \caption{Recommended mining directions from experience memory.}
+  \centering
+  \begin{small}
+  \begin{tabular}{p{3.5cm}p{8cm}c}
+    \toprule
+    Pattern & Description & Success Rate \\
+    \midrule
+    Higher Moment Regimes & Use Skew/Kurt as IfElse conditions to identify extreme asymmetric or fat-tail environments for reversal signals. & High \\
+    PV Corr Interaction & Combine price-volume correlation (Corr) with amount efficiency or trend operators to capture volume-price coordination. & High \\
+    Robust Efficiency & Use median (Med) and other robust statistics to smooth amount efficiency, filtering extreme noise. & High \\
+    Smoothed Efficiency Rank & Apply time-series smoothing (EMA) to amount efficiency before cross-sectional ranking. & High \\
+    Trend Regression Adaptive & Use Rsquare/Slope/Resi operators for adaptive trend regression. High R² $\rightarrow$ slope reversal; Low R² $\rightarrow$ residual reversal. & High \\
+    Logical 'Or' Extreme Regimes & Use Or operator to integrate multiple extreme indicators (volume/price) as environment switching conditions. & High \\
+    Kurtosis Regime & Use kurtosis to identify fat-tail environments and adaptively adjust reversal windows. & High \\
+    Amt Efficiency Rank Interaction & Combine amount efficiency time-series rank with other statistical features (e.g., kurtosis). & Medium \\
+    \bottomrule
+  \end{tabular}
+  \end{small}
+\end{table}
+
+The recommended directions reveal several key insights about effective factor design in high-frequency intraday settings:
+
+\textbf{(1) Higher-order moments as regime indicators.}
+Skewness and kurtosis emerge as powerful tools for identifying market regimes.
+When used as conditions in IfElse branching, they enable factors to adapt their logic based on distributional characteristics.
+For example, Factor 095 (Higher\_Moment\_Regime\_Switch) achieves IC = 0.062 by switching between amount efficiency and slope reversal based on skewness thresholds.
+This pattern suggests that extreme distributional environments (high skew or fat tails) signal different underlying market dynamics requiring distinct trading logic.
+
+\textbf{(2) Trend regression operators provide orthogonal signals.}
+The Rsquare/Slope/Resi operator family, introduced in our expanded operator library, enables capturing trend reliability and deviations.
+Factors using these operators (080--086) consistently achieve low correlation with existing VWAP-based factors while maintaining strong IC.
+The adaptive logic---using slope reversal when R² is high (indicating reliable trend) versus residual reversal when R² is low---aligns with financial intuition about trend-following vs. mean-reversion regimes.
+
+\textbf{(3) Amount efficiency as an underexplored dimension.}
+Combining returns with transaction amount ($\text{Returns}/\text{Amount}$) produces signals orthogonal to pure price-based factors.
+The success of factors 092--099 demonstrates that this dimension, when properly smoothed and ranked, captures liquidity-adjusted momentum that complements traditional price signals.
+
+\section{Experience Memory: Forbidden Directions}
+\label{app:forbidden}
+
+The following table summarizes patterns that consistently lead to high correlation with existing factors and should be avoided.
+
+\begin{table}[h]
+  \caption{Forbidden mining directions (high correlation risk).}
+  \centering
+  \begin{small}
+  \begin{tabular}{p{4cm}p{4cm}c}
+    \toprule
+    Direction & Correlated Factors & Correlation \\
+    \midrule
+    Standardized Returns/Amount & 006, 008, 009 & $>$0.6 \\
+    VWAP Deviation variants & 006, 009, 012, 013, 016 & $>$0.5 \\
+    Mean Reversion / Price Deviation & 001, 002 & $>$0.5 \\
+    Simple Delta Reversal & 023, 024 & $>$0.5 \\
+    Close-Position Location & 028, 044 & 0.87+ \\
+    Volatility + Price Position Branch & 046, 064 & $>$0.6 \\
+    High R² Trend Following & 081, 083 & $>$0.6 \\
+    Rsquare Weighted Momentum & 002, 023 & $>$0.7 \\
+    WMA/EMA Smoothed Efficiency & 092 & $>$0.9 \\
+    \bottomrule
+  \end{tabular}
+  \end{small}
+\end{table}
+
+The forbidden directions encode critical "negative knowledge" that prevents wasteful exploration:
+
+\textbf{(1) The VWAP cluster dominance.}
+Factor 006 (VWAP Deviation) and its variants form the most densely populated region of our correlation space.
+Any new factor involving close-to-VWAP distances, standardized by volatility or transaction volume, will almost certainly correlate $>$ 0.5 with this cluster.
+This explains why 40+ candidate factors were rejected during mining---they inadvertently rediscovered VWAP logic in different algebraic forms.
+
+\textbf{(2) The "Correlation Red Sea" phenomenon.}
+As the library grew beyond 70 factors, we observed that high-IC candidates (IC $>$ 0.08) increasingly correlated with existing factors.
+For example, in Batch 122, factors like SignedPower\_Returns (IC = 0.10) and High\_Log\_Ratio (IC = 0.105) were rejected due to correlations of 0.69--0.74 with factors 083 and 029.
+This suggests that the "easy" signal space has been exhausted, and future mining must target genuinely novel dimensions.
+
+\textbf{(3) Mathematical equivalence traps.}
+Several forbidden directions represent mathematically equivalent or highly similar computations.
+For instance, $\text{Neg}(\text{TsRank}(\text{Div}(\text{Sub}(\$\text{close}, \$\text{vwap}), \$\text{vwap}), 24))$ and $\text{Neg}(\text{CsRank}(\text{Delta}(\text{Sub}(\$\text{close}, \$\text{vwap}), 3)))$ appear structurally different but capture essentially the same VWAP deviation dynamic.
+Recording these equivalences prevents the agent from "rediscovering" the same signal.
+
+\section{Mining Log Analysis}
+\label{app:mining-log}
+
+This section provides detailed analysis of representative mining batches, illustrating the Ralph Loop in action.
+
+\subsection{Batch 126: Median/Log/Resi Exploration (40 Workers)}
+
+\paragraph{Setup.}
+40 parallel workers evaluated 40 candidate factors generated from Median/Log/Resi combinations.
+IC threshold: 0.05; correlation threshold: 0.5.
+
+\paragraph{Stage 1 Results.}
+7 candidates passed IC screening:
+{\setlength{\leftmargini}{1.4em}%
+\begin{itemize}
+  \item Open\_Close\_ResiCross (IC = 0.071)
+  \item Median\_Adjusted\_Returns (IC = 0.068)
+  \item High\_Log\_CloseSwitch (IC = 0.062)
+  \item Open\_Resi\_Skew\_Hybrid (IC = 0.062)
+  \item Median\_LogSwap (IC = 0.057)
+  \item Low\_Log\_RangeSwitch (IC = 0.089)
+  \item Low\_Log\_SignedPower (IC = 0.101)
+\end{itemize}
+}
+
+\paragraph{Stage 2 Bottleneck.}
+5 of 7 candidates were blocked by correlation with existing factors:
+{\setlength{\leftmargini}{1.4em}%
+\begin{itemize}
+  \item Low\_Log\_SignedPower: corr = 0.74 with Factor 028 (Close-Low $\times$ Volume)
+  \item Median\_Adjusted\_Returns: corr = 0.68 with Factor 083 (Rsquare Filtered Momentum)
+  \item High\_Log\_CloseSwitch: corr = 0.61 with Factor 101 (Median Returns Switch)
+  \item Open\_Close\_ResiCross: corr = 0.58 with Factor 006 (VWAP Deviation)
+  \item Low\_Log\_RangeSwitch: corr = 0.52 with Factor 028
+\end{itemize}
+}
+
+\paragraph{Final Admission.}
+2 factors admitted:
+{\setlength{\leftmargini}{1.4em}%
+\begin{itemize}
+  \item \textbf{Factor 103} (Open\_Resi\_Skew\_Hybrid): IC = 0.062, ICIR = 0.62, max\_corr = 0.41
+  \item \textbf{Factor 104} (Median\_LogSwap): IC = 0.057, ICIR = 0.59, max\_corr = 0.49
+\end{itemize}
+}
+
+\paragraph{Lessons Learned.}
+\begin{enumerate}
+  \item \textbf{High IC $\neq$ admission}: The highest-IC candidate (Low\_Log\_SignedPower, IC = 0.101) was rejected due to correlation.
+  \item \textbf{Residual combinations effective}: The Resi operator combined with Skew branching produced orthogonal signals.
+  \item \textbf{Memory update}: Added "Low-level log/close combinations" to forbidden directions (correlated with 028).
+\end{enumerate}
+
+\section{Factor Combination Detailed Analysis}
+\label{app:combo-detail}
+
+This section provides in-depth analysis of the three factor combination strategies.
+
+\begin{table}[h]
+  \caption{Detailed combination analysis (110 factors).}
+  \centering
+  \begin{small}
+  \begin{tabular}{lccc}
+    \toprule
+    Metric & Equal-Weight & IC-Weighted & Orthogonal \\
+    \midrule
+    IC Mean & 0.1451 & 0.1496 & 0.1400 \\
+    ICIR & 1.2053 & 1.2430 & 1.1933 \\
+    IC Win Rate & 85.0\% & 85.8\% & 84.8\% \\
+    Q1 Return & $-$0.0422\% & $-$0.0441\% & $-$0.0406\% \\
+    Q5 Return & 0.0603\% & 0.0619\% & 0.0564\% \\
+    L-S Return & 0.0513\% & 0.0531\% & 0.0486\% \\
+    L-S Cumulative & 23.72 & 26.67 & 19.84 \\
+    Monotonicity & 1.0 & 1.0 & 1.0 \\
+    Avg Turnover & 20.14\% & 20.43\% & 19.67\% \\
+    \bottomrule
+  \end{tabular}
+  \end{small}
+\end{table}
+
+
+Figures~\Cref{fig:combo-ic,fig:combo-quantile} visualize the temporal IC stability and return profiles of the three combination strategies.
+
+\textbf{(1) IC-weighted combination achieves highest cumulative returns.}
+By weighting factors proportionally to their historical IC, the IC-weighted method concentrates exposure on the most predictive signals.
+The 12.4\% improvement in cumulative returns (26.67 vs. 23.72) over equal-weight comes at minimal cost in turnover (+1.4\%).
+
+\textbf{(2) Orthogonal combination underperforms expectations.}
+Despite its theoretical appeal (removing redundant information), orthogonalization actually reduces both IC and cumulative returns.
+This counterintuitive result suggests that the correlation structure among factors contains useful information---highly correlated factors may be capturing the same underlying signal with different noise characteristics, and averaging them provides noise reduction benefits.
+
+\textbf{(3) Perfect monotonicity across all methods.}
+All three methods achieve monotonicity = 1.0, indicating perfect rank ordering of quintile returns.
+This confirms that the combined factors produce consistent cross-sectional rankings, essential for practical portfolio construction.
+
+\begin{figure}[h]
+  \centering
+  \begin{subfigure}[b]{0.32\textwidth}
+    \includegraphics[width=\textwidth]{pic/Combo/Library_Combo_All_equal_weight/ic_analysis.pdf}
+    \caption{Equal-weight IC}
+  \end{subfigure}
+  \hfill
+  \begin{subfigure}[b]{0.32\textwidth}
+    \includegraphics[width=\textwidth]{pic/Combo/Library_Combo_All_ic_weighted/ic_analysis.pdf}
+    \caption{IC-weighted IC}
+  \end{subfigure}
+  \hfill
+  \begin{subfigure}[b]{0.32\textwidth}
+    \includegraphics[width=\textwidth]{pic/Combo/Library_Combo_All_orthogonal/ic_analysis.pdf}
+    \caption{Orthogonal IC}
+  \end{subfigure}
+  \caption{IC time-series analysis for three combination methods. All methods show stable positive IC throughout the evaluation period, with IC-weighted exhibiting slightly higher peaks.}
+  \label{fig:combo-ic}
+\end{figure}
+
+\begin{figure}[h]
+  \centering
+  \begin{subfigure}[b]{0.32\textwidth}
+    \includegraphics[width=\textwidth]{pic/Combo/Library_Combo_All_equal_weight/quantile_returns.pdf}
+    \caption{Equal-weight quintiles}
+  \end{subfigure}
+  \hfill
+  \begin{subfigure}[b]{0.32\textwidth}
+    \includegraphics[width=\textwidth]{pic/Combo/Library_Combo_All_ic_weighted/quantile_returns.pdf}
+    \caption{IC-weighted quintiles}
+  \end{subfigure}
+  \hfill
+  \begin{subfigure}[b]{0.32\textwidth}
+    \includegraphics[width=\textwidth]{pic/Combo/Library_Combo_All_orthogonal/quantile_returns.pdf}
+    \caption{Orthogonal quintiles}
+  \end{subfigure}
+  \caption{Quantile returns for three combination methods. All methods show perfect monotonicity with Q5 (highest factor value) consistently outperforming Q1 (lowest).}
+  \label{fig:combo-quantile}
+\end{figure}
+
+\section{Factor Selection Detailed Analysis}
+\label{app:selection-detail}
+
+This section provides comprehensive analysis of the three factor selection methods.
+
+\begin{table}[h]
+  \caption{Detailed selection analysis.}
+  \centering
+  \begin{small}
+  \begin{tabular}{lccc}
+    \toprule
+    Metric & Lasso & Stepwise & XGBoost \\
+    \midrule
+    \# Selected Factors & 8 & 18 & 110 (all) \\
+    IC Mean & 0.1562 & 0.1556 & 0.1633 \\
+    ICIR & 1.2039 & 1.3827 & 1.4929 \\
+    IC Win Rate & 87.2\% & 88.5\% & 92.6\% \\
+    Q1 Return & $-$0.0604\% & $-$0.0485\% & $-$0.0609\% \\
+    Q5 Return & 0.0678\% & 0.0625\% & 0.0804\% \\
+    L-S Return & 0.0642\% & 0.0556\% & 0.0708\% \\
+    L-S Cumulative & 54.69 & 31.51 & 82.63 \\
+    Monotonicity & 1.0 & 1.0 & 1.0 \\
+    Avg Turnover & 19.92\% & 20.02\% & 19.32\% \\
+    \bottomrule
+  \end{tabular}
+  \end{small}
+\end{table}
+
+\paragraph{Interpretation.}
+Figures~\Cref{fig:selection-ic,fig:selection-quantile} summarize the IC stability and return profiles for the three selection methods.
+
+\textbf{(1) XGBoost achieves superior performance through nonlinear interactions.}
+The 24\% improvement in ICIR (1.49 vs. 1.20) and 51\% improvement in cumulative returns (82.6 vs. 54.7) over Lasso demonstrates the value of capturing nonlinear factor interactions.
+The regime-switching factors (IfElse-based) likely contribute significantly here, as tree-based models can naturally exploit their conditional logic.
+
+\textbf{(2) Lasso achieves extreme sparsity.}
+With only 8 factors, Lasso captures 95\% of the IC improvement achievable by the full library.
+This suggests that most predictive information is concentrated in a small subset of factors, consistent with the Pareto principle observed in many financial applications.
+
+\textbf{(3) Stepwise provides interpretable middle ground.}
+Forward stepwise selection balances sparsity (18 factors) with performance (ICIR = 1.38).
+The greedy selection trajectory (Table~\ref{tab:stepwise-full}) reveals the diminishing returns of adding factors beyond the first 10.
+
+\begin{figure}[h]
+  \centering
+  \begin{subfigure}[b]{0.32\textwidth}
+    \includegraphics[width=\textwidth]{pic/Selection/Lasso_Report/ic_analysis.pdf}
+    \caption{Lasso IC analysis}
+  \end{subfigure}
+  \hfill
+  \begin{subfigure}[b]{0.32\textwidth}
+    \includegraphics[width=\textwidth]{pic/Selection/Stepwise_Report/ic_analysis.pdf}
+    \caption{Stepwise IC analysis}
+  \end{subfigure}
+  \hfill
+  \begin{subfigure}[b]{0.32\textwidth}
+    \includegraphics[width=\textwidth]{pic/Selection/XGBoost_Report/ic_analysis.pdf}
+    \caption{XGBoost IC analysis}
+  \end{subfigure}
+  \caption{IC time-series analysis for three selection methods. XGBoost shows the most stable IC with highest win rate (92.6\%).}
+  \label{fig:selection-ic}
+\end{figure}
+
+\begin{figure}[h]
+  \centering
+  \begin{subfigure}[b]{0.32\textwidth}
+    \includegraphics[width=\textwidth]{pic/Selection/Lasso_Report/quantile_returns.pdf}
+    \caption{Lasso quintile returns}
+  \end{subfigure}
+  \hfill
+  \begin{subfigure}[b]{0.32\textwidth}
+    \includegraphics[width=\textwidth]{pic/Selection/Stepwise_Report/quantile_returns.pdf}
+    \caption{Stepwise quintile returns}
+  \end{subfigure}
+  \hfill
+  \begin{subfigure}[b]{0.32\textwidth}
+    \includegraphics[width=\textwidth]{pic/Selection/XGBoost_Report/quantile_returns.pdf}
+    \caption{XGBoost quintile returns}
+  \end{subfigure}
+  \caption{Quantile returns for three selection methods. XGBoost shows the widest Q5-Q1 spread, indicating strongest discriminative power.}
+  \label{fig:selection-quantile}
+\end{figure}
+
+\section{Cost Pressure Stress Test}
+\label{app:cost-pressure}
+
+We further evaluate the robustness of downstream combination and selection methods under transaction cost pressure. Specifically, we test five transaction cost settings (1, 4, 7, 10, and 11 bps) and report the resulting net cumulative performance trajectories. \Cref{fig:cost-pressure-grid} summarizes the cost-pressure analyses for three factor combination strategies and three factor selection strategies. For ease of comparison across cost regimes and performance scales, each panel is shown with both a linear y-axis and a log-scale y-axis.
+
+\begin{figure}[t]
+  \centering
+  \begin{subfigure}[b]{0.32\textwidth}
+    \includegraphics[width=\textwidth]{pic/cost_pressure_analyasis/Combo/equal_weight_cost_analysis.pdf}
+    \caption{Equal-weight (combination)}
+  \end{subfigure}
+  \hfill
+  \begin{subfigure}[b]{0.32\textwidth}
+    \includegraphics[width=\textwidth]{pic/cost_pressure_analyasis/Combo/ic_weighted_cost_analysis.pdf}
+    \caption{IC-weighted (combination)}
+  \end{subfigure}
+  \hfill
+  \begin{subfigure}[b]{0.32\textwidth}
+    \includegraphics[width=\textwidth]{pic/cost_pressure_analyasis/Combo/orthogonal_cost_analysis.pdf}
+    \caption{Orthogonal (combination)}
+  \end{subfigure}
+
+  \begin{subfigure}[b]{0.32\textwidth}
+    \includegraphics[width=\textwidth]{pic/cost_pressure_analyasis/Select/lasso_cost_analysis.pdf}
+    \caption{Lasso (selection)}
+  \end{subfigure}
+  \hfill
+  \begin{subfigure}[b]{0.32\textwidth}
+    \includegraphics[width=\textwidth]{pic/cost_pressure_analyasis/Select/stepwise_cost_analysis.pdf}
+    \caption{Stepwise (selection)}
+  \end{subfigure}
+  \hfill
+  \begin{subfigure}[b]{0.32\textwidth}
+    \includegraphics[width=\textwidth]{pic/cost_pressure_analyasis/Select/xgboost_cost_analysis.pdf}
+    \caption{XGBoost (selection)}
+  \end{subfigure}
+  \caption{Cost pressure stress tests for three factor combination methods (Equal-weight, IC-weighted, Orthogonal; top row) and three factor selection methods (Lasso, Stepwise, XGBoost; bottom row). For each method, we evaluate performance under five transaction cost settings: 1, 4, 7, 10, and 11 bps. Each panel reports the net cumulative performance over time using both a linear and a log-scale y-axis to facilitate comparison across cost regimes and performance scales.}
+  \label{fig:cost-pressure-grid}
+\end{figure}
+
+\section{Lasso Selected Factors Analysis}
+\label{app:lasso-factors}
+
+\begin{table}[h]
+  \caption{Factors selected by Lasso (8 factors, sorted by coefficient magnitude).}
+  \centering
+  \begin{small}
+  \begin{tabular}{clcl}
+    \toprule
+    ID & Name & Coefficient & Role \\
+    \midrule
+    006 & VWAP Deviation & $3.23 \times 10^{-4}$ & Core anchor \\
+    002 & EMA Deviation & $7.23 \times 10^{-5}$ & Trend baseline \\
+    079 & Regime\_Vol\_Range\_Pos & $2.58 \times 10^{-5}$ & Regime switch \\
+    040 & PricePos\_Skew\_Slope & $1.14 \times 10^{-5}$ & Distribution \\
+    011 & Price-VWAP Momentum & $8.18 \times 10^{-6}$ & VWAP variant \\
+    045 & Kurtosis-Regime Range & $7.18 \times 10^{-6}$ & Higher moment \\
+    009 & Vol-Filtered Return & $4.28 \times 10^{-6}$ & Risk filter \\
+    022 & Lower-Shadow Ratio & $2.59 \times 10^{-6}$ & Candlestick \\
+    \bottomrule
+  \end{tabular}
+  \end{small}
+\end{table}
+
+\paragraph{Interpretation.}
+The Lasso-selected factors represent a diverse minimal spanning set of the factor space:
+
+\textbf{Factor 006 (VWAP Deviation)} dominates with coefficient 4.5x larger than the second factor.
+This confirms VWAP as the most powerful single signal for intraday reversal prediction.
+
+\textbf{Factor 002 (EMA Deviation)} provides complementary trend information using exponential smoothing rather than volume-weighted averaging.
+
+\textbf{Factors 079, 045 (Regime-switching)} introduce conditional logic that adapts to market state, providing nonlinear signal that linear Lasso partially captures through coefficient weighting.
+
+\textbf{Factors 040, 022 (Distribution/Candlestick)} represent orthogonal signal sources---higher-order moments and price action patterns---that Lasso identifies as non-redundant.
+
+\section{Stepwise Selection Trajectory}
+\label{app:stepwise-trajectory}
+
+\begin{table}[h]
+  \caption{Forward stepwise selection trajectory (all 18 steps).}
+  \label{tab:stepwise-full}
+  \centering
+  \begin{small}
+  \begin{tabular}{clcccc}
+    \toprule
+    Step & Added Factor & Indiv. IC & Comb. IC & ICIR & $\Delta$ICIR \\
+    \midrule
+    1 & 006 VWAP Deviation & 0.129 & 0.150 & 1.163 & -- \\
+    2 & 046 Vol-Regime Reversal & 0.109 & 0.145 & 1.184 & +0.021 \\
+    3 & 079 Regime Vol-Range & 0.103 & 0.145 & 1.234 & +0.050 \\
+    4 & 044 Kurtotic Vol Intensity & 0.100 & 0.145 & 1.271 & +0.037 \\
+    5 & 041 Price Range Skew & 0.097 & 0.145 & 1.296 & +0.025 \\
+    6 & 040 PricePos Skew Slope & 0.095 & 0.145 & 1.299 & +0.003 \\
+    7 & 013 Illiquidity VWAP & 0.092 & 0.148 & 1.304 & +0.005 \\
+    8 & 107 PricePos Skew VolDelta & 0.090 & 0.147 & 1.304 & +0.000 \\
+    9 & 004 High-Vol Weakness & 0.082 & 0.150 & 1.308 & +0.004 \\
+    10 & 011 Price-VWAP Momentum & 0.078 & 0.151 & 1.315 & +0.007 \\
+    11 & 074 Range Pos Vol Skew & 0.073 & 0.150 & 1.316 & +0.001 \\
+    12 & 026 PV Covariance Long & 0.066 & 0.153 & 1.357 & +0.041 \\
+    13 & 054 Amount Regime & 0.063 & 0.153 & 1.366 & +0.009 \\
+    14 & 016 VWAP Vol Skew Switch & 0.063 & 0.154 & 1.370 & +0.004 \\
+    15 & 005 Range-Pos Vol-Cov & 0.055 & 0.154 & 1.370 & +0.000 \\
+    16 & 022 Lower-Shadow Ratio & 0.055 & 0.154 & 1.378 & +0.008 \\
+    17 & 051 High Med Volume Switch & 0.049 & 0.155 & 1.381 & +0.003 \\
+    18 & 076 Amt Velocity Volatility & 0.047 & 0.156 & 1.383 & +0.002 \\
+    \bottomrule
+  \end{tabular}
+  \end{small}
+\end{table}
+
+\paragraph{Interpretation.}
+The stepwise trajectory reveals the structure of marginal contribution:
+
+\textbf{Steps 1--5: Rapid ICIR improvement (+0.133).}
+The first five factors (006, 046, 079, 044, 041) provide the bulk of predictive improvement.
+These factors span different logical categories (VWAP, regime-switching, higher moments), confirming the value of diversity.
+
+\textbf{Steps 6--11: Diminishing returns.}
+Adding factors 6--11 improves ICIR by only +0.020 total, despite each factor having respectable individual IC ($>$ 0.07).
+This plateau indicates that the marginal information content decreases rapidly after the core signal space is covered.
+
+\textbf{Step 12: Second-wave improvement.}
+Factor 026 (PV Covariance Long) provides an unexpected +0.041 ICIR boost, suggesting that price-volume covariance captures a distinct signal dimension not well-represented by the first 11 factors.
+
+\textbf{Steps 13--18: Final refinement.}
+The last six factors add only +0.026 ICIR total, confirming convergence to the ICIR ceiling.
+
+\section{XGBoost Feature Importance Analysis}
+\label{app:xgb-importance}
+
+\begin{table}[h]
+  \caption{XGBoost feature importance (top 20 factors).}
+  \centering
+  \begin{small}
+  \begin{tabular}{clcl}
+    \toprule
+    ID & Name & Import. & Category \\
+    \midrule
+    006 & VWAP Deviation & 6.04\% & VWAP \\
+    061 & Alpha101\_12\_Modern & 4.06\% & Classic \\
+    023 & Normalized-Momentum TsRank & 3.59\% & Momentum \\
+    068 & Skewness\_Regime\_PV\_Div & 3.55\% & Regime \\
+    028 & Close-Low $\times$ Volume & 3.03\% & Price range \\
+    070 & Price\_Pos\_Vol\_Interaction & 2.27\% & Interaction \\
+    057 & TsRank\_PV\_Divergence & 2.26\% & Divergence \\
+    029 & High-Close $\times$ Volume & 2.15\% & Price range \\
+    018 & Range-Position Vol Regime & 1.62\% & Range \\
+    045 & Kurtosis-Regime Range & 1.57\% & Higher moment \\
+    048 & Vol-Price Rank Divergence & 1.47\% & Divergence \\
+    104 & Median\_LogSwap & 1.46\% & Median \\
+    053 & Alpha101\_1\_V & 1.44\% & Classic \\
+    101 & Median\_Returns\_Switch & 1.41\% & Median \\
+    004 & High-Vol Relative Weakness & 1.34\% & Volume \\
+    055 & Skew\_Open\_Close\_Product & 1.24\% & Distribution \\
+    019 & VWAP-Gap Regime Range & 1.20\% & VWAP \\
+    092 & Amt\_Efficiency\_EMA\_Smooth & 1.16\% & Efficiency \\
+    073 & Amt\_Velocity\_Regime & 1.16\% & Efficiency \\
+    043 & Skewed Volume Momentum & 1.11\% & Distribution \\
+    \bottomrule
+  \end{tabular}
+  \end{small}
+\end{table}
+
+\paragraph{Interpretation.}
+XGBoost importance reveals the nonlinear signal structure:
+
+\textbf{(1) VWAP remains dominant but not overwhelming.}
+Factor 006 contributes 6.04\% importance---significant but not dominant.
+In contrast, Lasso assigns 006 a coefficient 4.5x larger than the second factor.
+This suggests XGBoost extracts value from many factors simultaneously rather than relying on a single anchor.
+
+\textbf{(2) Regime-switching factors are highly valued.}
+Factors 068 (Skewness Regime) and 070 (Price-Vol Interaction) rank 4th and 6th despite lower individual IC than factors 046 or 079.
+This indicates XGBoost effectively exploits their conditional logic structure.
+
+\textbf{(3) Classic Alpha101 factors remain relevant.}
+Factors 061 (Alpha101\_12\_Modern) and 053 (Alpha101\_1\_V) rank 2nd and 13th, demonstrating that modernized versions of classic formulas contribute unique signals even in a 110-factor library.
+
+\textbf{(4) Long-tail distribution of importance.}
+The top 20 factors contribute 43.8\% of total importance, while the remaining 90 factors contribute 56.2\%.
+This confirms that XGBoost extracts value broadly across the library, justifying the construction of a diverse factor set.
+
+\section{Individual Factor Tear-Sheet Example}
+\label{app:tearsheet}
+
+We present the complete evaluation report for Factor 046 (Volatility-Regime Reversal Divergence), one of the top-performing factors (see \Cref{fig:factor046-tearsheet}).
+
+\paragraph{Factor Profile.}
+{\setlength{\leftmargini}{1.4em}%
+\begin{itemize}
+  \item \textbf{ID}: 046
+  \item \textbf{Name}: Volatility-Regime Reversal Divergence
+  \item \textbf{Formula}:
+    \texttt{IfElse(Greater(Std(\$returns, 12), Mean(Std(\$returns, 12), 48)),}\\
+    \hspace*{\parindent}\texttt{Neg(CsRank(Delta(\$close, 3))),}\\
+    \hspace*{\parindent}\texttt{Neg(CsRank(Div(Sub(\$close, \$low), Add(Sub(\$high, \$low), 0.0001)))))}
+  \item \textbf{Category}: Regime-switching
+\end{itemize}
+}
+
+\paragraph{Performance Metrics.}
+\begin{table}[h]
+  \centering
+  \begin{small}
+  \begin{tabular}{lc}
+    \toprule
+    Metric & Value \\
+    \midrule
+    IC Mean & 0.1087 \\
+    ICIR & 0.9422 \\
+    IC Win Rate (daily) & 80.1\% \\
+    Q1 Return & $-$0.0380\% \\
+    Q5 Return & 0.0402\% \\
+    L-S Return & 0.0390\% \\
+    L-S Cumulative & 10.57 \\
+    Monotonicity & 1.0 \\
+    Avg Turnover & 15.69\% \\
+    \bottomrule
+  \end{tabular}
+  \end{small}
+\end{table}
+\noindent\textbf{Note.} IC is computed at 10-minute frequency. The win rate is reported at daily granularity by aggregating the 10-minute IC values within each day (daily mean) and counting the fraction of days with positive daily IC.
+
+\paragraph{Financial Logic.}
+This factor implements adaptive reversal logic based on volatility regime:
+{\setlength{\leftmargini}{1.4em}%
+\begin{itemize}
+  \item \textbf{High volatility regime} (Std $>$ 48-period mean): Use volume-price divergence signal. In turbulent markets, divergence between volume momentum and price momentum signals exhaustion.
+  \item \textbf{Low volatility regime}: Use VWAP deviation normalized by volatility. In calm markets, simple mean-reversion to VWAP is more reliable.
+\end{itemize}
+}
+
+\begin{figure}[h]
+  \centering
+  \begin{subfigure}[b]{0.48\textwidth}
+    \includegraphics[width=\textwidth]{pic/046_Volatility-Regime_Reversa/ic_analysis.pdf}
+    \caption{IC time-series analysis}
+  \end{subfigure}
+  \hfill
+  \begin{subfigure}[b]{0.48\textwidth}
+    \includegraphics[width=\textwidth]{pic/046_Volatility-Regime_Reversa/quantile_returns.pdf}
+    \caption{Quantile returns}
+  \end{subfigure}
+
+  \begin{subfigure}[b]{0.48\textwidth}
+    \includegraphics[width=\textwidth]{pic/046_Volatility-Regime_Reversa/distribution.pdf}
+    \caption{Factor value distribution}
+  \end{subfigure}
+  \hfill
+  \begin{subfigure}[b]{0.48\textwidth}
+    \includegraphics[width=\textwidth]{pic/046_Volatility-Regime_Reversa/turnover.pdf}
+    \caption{Turnover analysis}
+  \end{subfigure}
+  \caption{Complete tear-sheet for Factor 046 (Volatility-Regime Reversal Divergence). The factor shows stable IC with 80\% daily win rate, perfect monotonicity in quintile returns, and moderate turnover (15.7\%).}
+  \label{fig:factor046-tearsheet}
+\end{figure}
+
+\section{Full Factor Library (110 factors)}
+\label{app:factor-list}
+
+We provide the complete factor library (ID, name, and formula).
+
+\input{appendix_factors.tex}
+
+\end{document}

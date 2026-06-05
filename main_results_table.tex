@@ -1,0 +1,54 @@
+\begin{table*}[t]
+  \centering
+  \caption{Out-of-Sample performance comparison with a stricter protocol. Top-40 factors are selected on CSI500 (\textbf{2024}) and evaluated on \textbf{2025} across datasets. For Alpha101, Classic is restricted to the same candidate set as Adapted. All reported IC and ICIR use the paper's absolute-IC summary: $|\mathbb{E}[IC_t]|$ and $|\mathbb{E}[IC_t]|/\mathrm{std}(IC_t)$. Factor Combination uses the frozen Top-40 with EW and ICW (weights/signs determined on 2024). Factor Selection trains on 2024 and tests on 2025 using Lasso and XGBoost.}
+  \label{tab:main_results_kdd}
+  \vskip 0.1in
+  \scriptsize
+  \setlength{\tabcolsep}{3pt}
+  \begin{tabular}{ll ccc cccc cccc}
+    \toprule
+    \multirow{2}{*}{\textbf{Dataset}} & \multirow{2}{*}{\textbf{Method}} & \multicolumn{3}{c}{\textbf{Factor Library (Top-40)}} & \multicolumn{4}{c}{\textbf{Factor Combination (Top-40)}} & \multicolumn{4}{c}{\textbf{Factor Selection (Train'24/Test'25)}} \\
+    \cmidrule(lr){3-5} \cmidrule(lr){6-9} \cmidrule(lr){10-13}
+    & & IC (\%) & ICIR & Avg $|\rho|$ & EW IC & EW ICIR & ICW IC & ICW ICIR & Las. IC & Las. ICIR & XGB. IC & XGB. ICIR \\
+    \midrule
+    \multirow{7}{*}{\textbf{CSI500}}
+    & RF$^\ddagger$ & 2.68 & 0.25 & \textbf{0.13} & 6.98 & 0.41 & 12.02 & 0.90 & 13.81 & 1.15 & 8.99 & 0.90 \\
+    & Alpha101 (Classic) & 4.49 & 0.42 & \underline{0.19} & 10.85 & 0.88 & 12.89 & 0.99 & \underline{14.09} & \textbf{1.27} & 12.07 & 1.21 \\
+    & Alpha101 (Adapted) & 5.06 & 0.43 & 0.21 & \underline{11.53} & 0.86 & \underline{14.71} & \underline{1.13} & 13.70 & \underline{1.08} & \underline{13.76} & \underline{1.20} \\
+    & GPLearn & \underline{6.04} & 0.43 & 0.44 & 10.30 & 0.62 & 13.38 & 1.00 & 12.44 & 1.17 & 9.86 & 0.95 \\
+    & AlphaForge & 4.48 & 0.38 & 0.36 & 7.12 & 0.60 & 11.13 & 0.93 & 10.49 & 0.87 & 11.30 & 1.25 \\
+    & AlphaAgent & 5.90 & \underline{0.46} & 0.32 & 10.99 & \underline{0.92} & 11.86 & 0.99 & 13.87 & \underline{1.19} & 11.93 & \underline{1.24} \\
+    & \textbf{FactorMiner (Ours)} & \textbf{8.25} & \textbf{0.77} & 0.31 & \textbf{14.95} & \textbf{1.29} & \textbf{15.11} & \textbf{1.31} & \textbf{14.59} & 1.21 & \textbf{14.03} & \textbf{1.29} \\
+    \midrule
+    \multirow{7}{*}{\textbf{CSI1000}}
+    & RF$^\ddagger$ & 2.88 & 0.30 & \textbf{0.13} & 7.48 & 0.49 & 12.28 & 1.00 & 13.72 & \underline{1.24} & 9.54 & 1.03 \\
+    & Alpha101 (Classic) & 4.86 & \textbf{0.50} & \underline{0.19} & 11.37 & 1.02 & 13.14 & 1.08 & \textbf{14.64} & \textbf{1.42} & 11.11 & 1.17 \\
+    & Alpha101 (Adapted) & 5.32 & 0.49 & 0.21 & \underline{11.95} & 0.98 & \textbf{14.78} & \underline{1.21} & 13.08 & 1.09 & \textbf{13.88} & \underline{1.26} \\
+    & GPLearn & 5.86 & 0.48 & 0.44 & 11.10 & 0.73 & 13.66 & 1.11 & 12.87 & 1.23 & 9.53 & 0.96 \\
+    & AlphaForge & 4.64 & 0.42 & 0.35 & 7.60 & 0.71 & 11.25 & 1.02 & 10.42 & 0.93 & 12.20 & \textbf{1.34} \\
+    & AlphaAgent & \underline{6.21} & \underline{0.51} & 0.32 & 11.17 & \underline{1.04} & 12.00 & 1.12 & 13.73 & \underline{1.27} & 11.42 & \underline{1.22} \\
+    & \textbf{FactorMiner (Ours)} & \textbf{7.78} & \textbf{0.76} & 0.30 & \textbf{14.62} & \textbf{1.37} & \textbf{14.76} & \textbf{1.39} & \underline{14.25} & \underline{1.25} & \underline{12.42} & \underline{1.30} \\
+    \midrule
+    \multirow{7}{*}{\textbf{HS300}}
+    & RF$^\ddagger$ & 1.94 & 0.15 & \textbf{0.13} & 5.46 & 0.30 & 9.49 & 0.61 & 9.98 & 0.63 & 5.55 & 0.46 \\
+    & Alpha101 (Classic) & 3.44 & 0.26 & \underline{0.18} & 8.55 & 0.57 & 10.31 & 0.65 & 11.84 & 0.85 & 9.70 & 0.74 \\
+    & Alpha101 (Adapted) & \underline{4.00} & 0.28 & 0.20 & \underline{9.31} & 0.60 & \underline{12.03} & \underline{0.76} & \underline{12.04} & \underline{0.77} & \textbf{11.81} & \underline{0.90} \\
+    & GPLearn & 4.12 & 0.16 & 0.45 & 8.01 & 0.44 & 10.64 & 0.66 & 9.59 & 0.58 & 7.92 & 0.61 \\
+    & AlphaForge & 3.53 & 0.25 & 0.36 & 5.19 & 0.35 & 8.54 & 0.57 & 6.79 & 0.43 & 10.89 & 0.91 \\
+    & AlphaAgent & \underline{4.69} & \underline{0.30} & 0.33 & 8.83 & 0.59 & 9.65 & 0.65 & \textbf{12.26} & \textbf{0.86} & 9.66 & 0.84 \\
+    & \textbf{FactorMiner (Ours)} & \textbf{7.46} & \textbf{0.38} & 0.31 & \textbf{12.49} & \textbf{0.88} & \textbf{12.66} & \textbf{0.88} & 11.23 & 0.82 & \underline{11.33} & \underline{0.94} \\
+    \midrule
+    \multirow{7}{*}{\textbf{Crypto}}
+    & RF$^\ddagger$ & 1.45 & 0.09 & \textbf{0.07} & 3.31 & 0.19 & 7.91 & 0.48 & 8.04 & \underline{0.51} & 3.50 & 0.24 \\
+    & Alpha101 (Classic) & 2.11 & 0.14 & \underline{0.14} & 5.91 & \underline{0.41} & 8.05 & 0.53 & \textbf{9.63} & \textbf{0.54} & \underline{5.61} & \underline{0.37} \\
+    & Alpha101 (Adapted) & 2.40 & 0.15 & 0.15 & 6.09 & 0.41 & \underline{9.21} & \textbf{0.62} & 8.45 & 0.48 & 4.51 & 0.30 \\
+    & GPLearn & 2.50 & 0.15 & 0.38 & 4.44 & 0.25 & 7.62 & 0.42 & \underline{9.07} & \underline{0.48} & 4.04 & 0.27 \\
+    & AlphaForge & 2.52 & 0.16 & 0.31 & 4.63 & 0.29 & 7.44 & 0.44 & 8.39 & 0.42 & 5.00 & 0.33 \\
+    & AlphaAgent & \underline{2.86} & \underline{0.17} & 0.27 & \underline{7.94} & 0.34 & \underline{8.40} & 0.36 & 7.48 & 0.41 & 2.35 & 0.17 \\
+    & \textbf{FactorMiner (Ours)} & \textbf{3.82} & \textbf{0.28} & 0.25 & \textbf{9.48} & \textbf{0.61} & \textbf{9.48} & \textbf{0.62} & 8.98 & 0.51 & \textbf{6.82} & \textbf{0.47} \\
+    \bottomrule
+  \end{tabular}
+  \begin{flushleft}
+    \scriptsize Note: IC is computed as Spearman rank correlation per bar and summarized as $|\mathbb{E}[IC_t]|$. Las.=Lasso, XGB.=XGBoost. $^\ddagger$RF=Random Exploration.
+  \end{flushleft}
+\end{table*}
